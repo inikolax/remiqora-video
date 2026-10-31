@@ -1,0 +1,310 @@
+{
+ "name": "Две концовки",
+ "about": "Общие сцены 1–2 и две разные третьи: два ролика, общие сцены снимаются один раз.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 1",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene: a quiet seaside pier at dawn; an adult woman, about 30, with long dark hair, in a beige coat, walks toward the camera.\n\nCamera: medium shot, slow push-in.\n\nTimeline:\n[0s-3s] She walks along the pier toward the camera.\n[3s-5s] She stops and looks at the sea.\n\nAudio: waves, seagulls, soft wind.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 1",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 640,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 2",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same pier.\n\nCamera: medium close-up, static camera.\n\nTimeline:\n[0s-3s] She takes a folded letter out of her pocket.\n[3s-5s] She reads it, her face softening.\n\nAudio: waves, paper rustling.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 960,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 2",
+    "takes": [
+     1002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p3",
+   "type": "prompt",
+   "position": {
+    "x": 1280,
+    "y": -170
+   },
+   "data": {
+    "title": "Концовка А",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same pier.\n\nCamera: wide shot, slow pull back.\n\nTimeline:\n[0s-3s] She smiles and folds the letter.\n[3s-5s] She turns and walks away along the pier.\n\nAudio: waves, distant church bells.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s3",
+   "type": "scene",
+   "position": {
+    "x": 1600,
+    "y": -170
+   },
+   "data": {
+    "title": "Концовка А",
+    "takes": [
+     1003
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p4",
+   "type": "prompt",
+   "position": {
+    "x": 1280,
+    "y": 170
+   },
+   "data": {
+    "title": "Концовка Б",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same pier.\n\nCamera: close-up, static camera.\n\nTimeline:\n[0s-3s] She crumples the letter in her hand.\n[3s-5s] She throws it into the sea and looks away.\n\nAudio: waves, a gust of wind.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s4",
+   "type": "scene",
+   "position": {
+    "x": 1600,
+    "y": 170
+   },
+   "data": {
+    "title": "Концовка Б",
+    "takes": [
+     1004
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "ja",
+   "type": "join",
+   "position": {
+    "x": 1960,
+    "y": -170
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2",
+     "s3"
+    ],
+    "title": "Версия А"
+   }
+  },
+  {
+   "id": "jb",
+   "type": "join",
+   "position": {
+    "x": 1960,
+    "y": 170
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2",
+     "s4"
+    ],
+    "title": "Версия Б"
+   }
+  },
+  {
+   "id": "oa",
+   "type": "output",
+   "position": {
+    "x": 2280,
+    "y": -170
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    },
+    "title": "Концовка А"
+   }
+  },
+  {
+   "id": "ob",
+   "type": "output",
+   "position": {
+    "x": 2280,
+    "y": 170
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    },
+    "title": "Концовка Б"
+   }
+  },
+  {
+   "id": "grp",
+   "type": "group",
+   "position": {
+    "x": -30,
+    "y": -70
+   },
+   "data": {
+    "title": "Общие сцены — снимаются один раз",
+    "w": 1290,
+    "h": 360
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -360
+   },
+   "data": {
+    "text": "Две концовки.\n\nСцены 1–2 общие и снимаются один раз, третья — своя у каждой версии. «Снять всё» сделает оба ролика. Третью концовку — «Дублировать ветку» на «Концовке Б»."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-frame-s2-start",
+   "source": "s1",
+   "sourceHandle": "frame",
+   "target": "s2",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p3-text-s3-prompt",
+   "source": "p3",
+   "sourceHandle": "text",
+   "target": "s3",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p4-text-s4-prompt",
+   "source": "p4",
+   "sourceHandle": "text",
+   "target": "s4",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s2-frame-s3-start",
+   "source": "s2",
+   "sourceHandle": "frame",
+   "target": "s3",
+   "targetHandle": "start"
+  },
+  {
+   "id": "s2-frame-s4-start",
+   "source": "s2",
+   "sourceHandle": "frame",
+   "target": "s4",
+   "targetHandle": "start"
+  },
+  {
+   "id": "s1-clip-ja-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "ja",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-ja-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "ja",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s3-clip-ja-clips",
+   "source": "s3",
+   "sourceHandle": "clip",
+   "target": "ja",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s1-clip-jb-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "jb",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-jb-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "jb",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s4-clip-jb-clips",
+   "source": "s4",
+   "sourceHandle": "clip",
+   "target": "jb",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "ja-video-oa-video",
+   "source": "ja",
+   "sourceHandle": "video",
+   "target": "oa",
+   "targetHandle": "video"
+  },
+  {
+   "id": "jb-video-ob-video",
+   "source": "jb",
+   "sourceHandle": "video",
+   "target": "ob",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 1
+}

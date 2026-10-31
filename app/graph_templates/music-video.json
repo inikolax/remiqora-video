@@ -1,0 +1,221 @@
+{
+ "name": "Клип под свой трек",
+ "about": "Три сцены со сменой плана, ваш трек вместо звука сцен, 1080p и 48 fps.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 1",
+    "text": "Stylish music video look, saturated colour, high contrast, light haze, dynamic lighting.\n\nScene: an empty warehouse with coloured spotlights; an adult woman, about 25, in a silver jacket, dances alone.\n\nCamera: full-body shot, the camera slowly orbits her.\n\nTimeline:\n[0s-3s] She spins with her arms open.\n[3s-5s] She stops and looks into the camera.\n\nAudio: footsteps on concrete, no music.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 1",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 300
+   },
+   "data": {
+    "title": "Сцена 2",
+    "text": "Stylish music video look, saturated colour, high contrast, light haze, dynamic lighting.\n\nScene: a rooftop at night with city lights; the same woman in the silver jacket dances in the wind.\n\nCamera: medium shot, handheld, slightly shaky.\n\nTimeline:\n[0s-3s] She throws her head back and laughs.\n[3s-5s] She jumps and lands with a spin.\n\nAudio: wind, no music.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 300
+   },
+   "data": {
+    "title": "Сцена 2",
+    "takes": [
+     1002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p3",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 600
+   },
+   "data": {
+    "title": "Сцена 3",
+    "text": "Stylish music video look, saturated colour, high contrast, light haze, dynamic lighting.\n\nScene: a neon-lit tunnel; the same woman in the silver jacket walks toward the camera.\n\nCamera: medium shot, the camera tracks backward in front of her.\n\nTimeline:\n[0s-3s] She walks toward the camera with confidence.\n[3s-5s] She raises one hand to the lens.\n\nAudio: echoing footsteps, no music.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s3",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 600
+   },
+   "data": {
+    "title": "Сцена 3",
+    "takes": [
+     1003
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 700,
+    "y": 300
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2",
+     "s3"
+    ]
+   }
+  },
+  {
+   "id": "tr",
+   "type": "track",
+   "position": {
+    "x": 700,
+    "y": 600
+   },
+   "data": {
+    "title": "Ваш трек"
+   }
+  },
+  {
+   "id": "mu",
+   "type": "music",
+   "position": {
+    "x": 1020,
+    "y": 380
+   },
+   "data": {
+    "volume": 1.0,
+    "scene_volume": 0.0,
+    "offset": 0,
+    "fade_in": 0.3,
+    "fade_out": 1.5
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 1340,
+    "y": 380
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": true
+    },
+    "title": "Клип"
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Клип под свой трек.\n\nЗагрузите музыку в узел «Трек». Сцены — новые, со сменой плана, без музыки внутри («no music» в звуке), звук сцен в «Музыке» выключен — слышен только трек. Выход — 1080p и 48 кадров в секунду."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p3-text-s3-prompt",
+   "source": "p3",
+   "sourceHandle": "text",
+   "target": "s3",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-j-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s3-clip-j-clips",
+   "source": "s3",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-mu-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "mu",
+   "targetHandle": "video"
+  },
+  {
+   "id": "tr-audio-mu-audio",
+   "source": "tr",
+   "sourceHandle": "audio",
+   "target": "mu",
+   "targetHandle": "audio"
+  },
+  {
+   "id": "mu-video-o-video",
+   "source": "mu",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 10
+}

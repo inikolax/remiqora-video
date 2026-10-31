@@ -1,0 +1,164 @@
+{
+ "name": "Another angle from the middle",
+ "about": "A «Frame» at 2.5 s of the first scene starts the second: the same moment in another shot.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Wide shot",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene: a sunny rooftop garden; an adult man, about 30, in a white shirt, waters the plants.\n\nCamera: wide shot, static camera.\n\nTimeline:\n[0s-2s] He waters a row of tomatoes.\n[2s-5s] He puts the watering can down and wipes his forehead.\n\nAudio: water pouring, birds, distant city.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Wide shot",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "fr",
+   "type": "frame",
+   "position": {
+    "x": 680,
+    "y": 220
+   },
+   "data": {
+    "title": "Frame at 2.5 s",
+    "at": 2.5
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 680,
+    "y": 460
+   },
+   "data": {
+    "title": "Close-up",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same rooftop.\n\nCamera: close-up on his face, slow push-in.\n\nTimeline:\n[0s-3s] He looks at the plants and smiles.\n[3s-5s] He closes his eyes in the sun.\n\nAudio: birds, a light breeze.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 1000,
+    "y": 300
+   },
+   "data": {
+    "title": "Close-up",
+    "takes": [
+     1002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 1360,
+    "y": 100
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2"
+    ]
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 1680,
+    "y": 100
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    }
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Another angle from the middle.\n\nThe «Frame» node takes a frame from the scene at 2.5 s, and the second scene starts from it — the same moment, another shot. Move the moment in the «Frame» panel. In the join it is a plain change of shot, with no repeated frame."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-clip-fr-clip",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "fr",
+   "targetHandle": "clip"
+  },
+  {
+   "id": "fr-image-s2-start",
+   "source": "fr",
+   "sourceHandle": "image",
+   "target": "s2",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-j-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-o-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 7
+}

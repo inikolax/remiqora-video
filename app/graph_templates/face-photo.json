@@ -1,0 +1,164 @@
+{
+ "name": "Одно лицо в разных местах",
+ "about": "Фото человека во вход «лица» двух новых сцен: Ref2VA держит лицо, места разные.",
+ "nodes": [
+  {
+   "id": "h",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 200
+   },
+   "data": {
+    "title": "Лицо",
+    "gender": "female"
+   }
+  },
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Кафе",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene: a cozy café at night, warm pendant lights; the woman from <Picture 1> sits at the window with a cup of coffee.\n\nCamera: medium close-up, static camera, her face clearly visible.\n\nTimeline:\n[0s-3s] She lifts the cup and takes a sip.\n[3s-5s] She looks out at the rain and smiles.\n\nAudio: rain on the glass, quiet café murmur.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 640,
+    "y": 0
+   },
+   "data": {
+    "title": "Кафе",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 320,
+    "y": 300
+   },
+   "data": {
+    "title": "Улица",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene: a wet city street at night, neon reflections; the woman from <Picture 1> walks under a clear umbrella.\n\nCamera: medium shot, the camera tracks backward in front of her, her face clearly visible.\n\nTimeline:\n[0s-3s] She walks toward the camera.\n[3s-5s] She stops and looks up at the rain.\n\nAudio: rain on the umbrella, distant traffic.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 640,
+    "y": 300
+   },
+   "data": {
+    "title": "Улица",
+    "takes": [
+     1002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 1000,
+    "y": 150
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2"
+    ]
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 1320,
+    "y": 150
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    }
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Лицо по фото (Ref2VA).\n\nЗагрузите фото в узел «Лицо»: анфас, лицо крупно, нейтральный фон. Фото идёт во вход «лица» обеих сцен — их снимет модель Ref2VA, и лицо будет одно в разных местах. В промте человек назван «from <Picture 1>»."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "h-image-s1-faces",
+   "source": "h",
+   "sourceHandle": "image",
+   "target": "s1",
+   "targetHandle": "faces"
+  },
+  {
+   "id": "h-image-s2-faces",
+   "source": "h",
+   "sourceHandle": "image",
+   "target": "s2",
+   "targetHandle": "faces"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-j-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-o-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 5
+}

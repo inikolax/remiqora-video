@@ -1,0 +1,195 @@
+{
+ "name": "Пейзаж одной цепочкой",
+ "about": "Три сцены без людей одной панорамой, 48 кадров в секунду.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Озеро",
+    "text": "Photorealistic nature documentary look, golden hour light, rich colour, crisp detail.\n\nScene: a calm mountain lake at sunset, pine trees on the shore, no people.\n\nCamera: wide shot, slow pan right.\n\nTimeline:\n[0s-5s] Golden light slides across the still water.\n\nAudio: birdsong, gentle lapping water.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Озеро",
+    "takes": [
+     3001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 640,
+    "y": 0
+   },
+   "data": {
+    "title": "Берег",
+    "text": "Continue seamlessly from <Picture 1>.\n\nPhotorealistic nature documentary look, golden hour light, rich colour, crisp detail.\n\nScene continues at the same lake, no people.\n\nCamera: wide shot, slow pan right.\n\nTimeline:\n[0s-5s] The sun touches the peaks and the water turns orange.\n\nAudio: birdsong fading, a light breeze.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 960,
+    "y": 0
+   },
+   "data": {
+    "title": "Берег",
+    "takes": [
+     3002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p3",
+   "type": "prompt",
+   "position": {
+    "x": 1280,
+    "y": 0
+   },
+   "data": {
+    "title": "Сумерки",
+    "text": "Continue seamlessly from <Picture 1>.\n\nPhotorealistic nature documentary look, golden hour light, rich colour, crisp detail.\n\nScene continues at the same lake, no people.\n\nCamera: wide shot, slow pan right.\n\nTimeline:\n[0s-5s] The sky deepens to violet and the first stars appear.\n\nAudio: crickets, distant loon calls.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s3",
+   "type": "scene",
+   "position": {
+    "x": 1600,
+    "y": 0
+   },
+   "data": {
+    "title": "Сумерки",
+    "takes": [
+     3003
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 1960,
+    "y": 0
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2",
+     "s3"
+    ]
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 2280,
+    "y": 0
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": true
+    },
+    "title": "Пейзаж 48 fps"
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Пейзаж одной цепочкой.\n\nБез людей вся цепочка — одно непрерывное движение камеры: каждое продолжение подхватывает панораму с последнего кадра. 48 кадров в секунду делают движение плавнее."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-frame-s2-start",
+   "source": "s1",
+   "sourceHandle": "frame",
+   "target": "s2",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p3-text-s3-prompt",
+   "source": "p3",
+   "sourceHandle": "text",
+   "target": "s3",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s2-frame-s3-start",
+   "source": "s2",
+   "sourceHandle": "frame",
+   "target": "s3",
+   "targetHandle": "start"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-j-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s3-clip-j-clips",
+   "source": "s3",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-o-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 12
+}

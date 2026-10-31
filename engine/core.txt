@@ -1,0 +1,2 @@
+https://github.com/Comfy-Org/ComfyUI.git
+b53f77a74e21091cbdebfdf7b85fc80326932646

@@ -1,0 +1,159 @@
+{
+ "name": "Диалог двоих",
+ "about": "Две сцены одним планом: она говорит, он отвечает — реплики по-русски в «Репликах» промта.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Она говорит",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene: a quiet street corner at dusk; a woman of about 35 with a dark bob and a red scarf faces a man of about 40 with short grey hair and a dark wool coat.\n\nCamera: medium two-shot, static camera.\n\nTimeline:\n[0s-2s] The woman in the red scarf looks at him.\n[2s-5s] The man in the dark coat nods.\n\nAudio: quiet street ambience, no music.\n\nNo text, subtitles, logos or watermarks.",
+    "lines": [
+     {
+      "who": "The woman in the red scarf",
+      "text": "Ты всё-таки пришёл.",
+      "how": "soft"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Она говорит",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 640,
+    "y": 0
+   },
+   "data": {
+    "title": "Он отвечает",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same street corner.\n\nCamera: medium close-up on the man, static camera.\n\nTimeline:\n[0s-2s] The man in the dark coat smiles slightly.\n[2s-5s] The woman in the red scarf laughs quietly.\n\nAudio: quiet street ambience, no music.\n\nNo text, subtitles, logos or watermarks.",
+    "lines": [
+     {
+      "who": "The man in the dark coat",
+      "text": "Я обещал.",
+      "how": "calm"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 960,
+    "y": 0
+   },
+   "data": {
+    "title": "Он отвечает",
+    "takes": [
+     1002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 1320,
+    "y": 0
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2"
+    ]
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 1640,
+    "y": 0
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    }
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Диалог двоих.\n\nЧто говорят — в «Репликах» промта: кто (приметой, как в промте: «The woman in the red scarf»), как и что, по-русски. Реплика сама встанет в таймлайн отдельной строкой, голос — в звук. У сцены «Промт с репликами» показывает, что получит H3. В сцену 5 с помещается фраза из 6–10 слов; «Придумать» предложит реплики по кнопке."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-frame-s2-start",
+   "source": "s1",
+   "sourceHandle": "frame",
+   "target": "s2",
+   "targetHandle": "start"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-j-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-o-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 6
+}

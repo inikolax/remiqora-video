@@ -1,0 +1,77 @@
+{
+ "name": "Idea → Writer → video",
+ "about": "Where to start: the idea and the heroine are already filled in and connected to the Writer. «Write», «Expand into scenes», «Shoot all».",
+ "order": -1,
+ "nodes": [
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -300
+   },
+   "data": {
+    "text": "How to use it.\n\n1. Idea — a couple of phrases in your language: who, where, what happens, how it ends. Adjust it to your video.\n2. Heroine — the look and outfit in English are already filled in. Your own photo: «Hero's photo» → «Describe from photo». The hero can be removed — the Writer will invent one.\n3. Writer — pick the length, mood, music and press «Write» (about a minute). The scenes appear as a list in your language.\n4. «Expand into scenes» — prompts, scenes, a join and an output appear on the right.\n5. Click the empty canvas → «Draft» → «Shoot all». The video is in the «Output».\n\nChanged the idea or the heroine — the Writer gets marked «Rewrite». What to do with a node — the «Next» line in its panel."
+   }
+  },
+  {
+   "id": "idea",
+   "type": "idea",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Idea",
+    "text": "A young barista closes a small café late in the evening, rain outside the window. She wipes the counter, turns off the lights and finds a note from a customer on a table — and smiles."
+   }
+  },
+  {
+   "id": "hero",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 260
+   },
+   "data": {
+    "title": "Heroine",
+    "gender": "female",
+    "age": 26,
+    "en": "a 26-year-old woman with a short dark bob, light freckles, warm brown eyes and a slim build",
+    "outfit_en": "a black apron over a white shirt with rolled-up sleeves",
+    "ru": "26 years old, short dark bob, freckles, brown eyes, slim. A black apron over a white shirt with rolled-up sleeves."
+   }
+  },
+  {
+   "id": "writer",
+   "type": "writer",
+   "position": {
+    "x": 360,
+    "y": 120
+   },
+   "data": {
+    "title": "Writer",
+    "seconds": 15,
+    "mode": "auto",
+    "mood": "Кино",
+    "music": "quiet piano"
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "idea-text-writer-idea",
+   "source": "idea",
+   "sourceHandle": "text",
+   "target": "writer",
+   "targetHandle": "idea"
+  },
+  {
+   "id": "hero-look-writer-cast",
+   "source": "hero",
+   "sourceHandle": "look",
+   "target": "writer",
+   "targetHandle": "cast"
+  }
+ ]
+}

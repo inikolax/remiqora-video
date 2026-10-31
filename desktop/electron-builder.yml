@@ -1,0 +1,31 @@
+appId: io.github.inikolax.remiqora-video
+productName: Remiqora Video
+copyright: Copyright © 2026 Nikolay Cherkashin
+directories:
+  output: dist
+  buildResources: build   # icon.png / icon.ico: docs/logo.svg drawn at 1024 px
+publish: null
+files:
+  - src/**
+  - renderer/**
+  - package.json
+  - "!**/*.map"
+# The app runs from real files (Python cannot import from an asar archive): the setup copies them into the chosen folder
+extraResources:
+  - from: resources/project
+    to: project
+  - from: resources/rtxvsr
+    to: rtxvsr
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+nsis:
+  oneClick: true                    # per user, no administrator prompt; everything big is downloaded by the first run
+  perMachine: false
+  deleteAppDataOnUninstall: false   # models and projects are the user's, not ours to delete
+  artifactName: Remiqora-Video-Setup-${version}.${ext}
+  shortcutName: Remiqora Video
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico

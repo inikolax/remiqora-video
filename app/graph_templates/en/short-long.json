@@ -1,0 +1,297 @@
+{
+ "name": "A short and a long version",
+ "about": "Four scenes in one shot; the long join takes them all, the short one the first two. Shot once.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Scene 1",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene: a quiet seaside pier at dawn; an adult woman, about 30, with long dark hair, in a beige coat, walks toward the camera.\n\nCamera: medium shot, slow push-in.\n\nTimeline:\n[0s-3s] She walks along the pier toward the camera.\n[3s-5s] She stops and looks at the sea.\n\nAudio: waves, seagulls, soft wind.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Scene 1",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 640,
+    "y": 0
+   },
+   "data": {
+    "title": "Scene 2",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same pier.\n\nCamera: medium close-up, static camera.\n\nTimeline:\n[0s-3s] She takes a folded letter out of her pocket.\n[3s-5s] She reads it, her face softening.\n\nAudio: waves, paper rustling.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 960,
+    "y": 0
+   },
+   "data": {
+    "title": "Scene 2",
+    "takes": [
+     1002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p3",
+   "type": "prompt",
+   "position": {
+    "x": 1280,
+    "y": 0
+   },
+   "data": {
+    "title": "Scene 3",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same pier.\n\nCamera: wide shot, slow pull back.\n\nTimeline:\n[0s-3s] She smiles and folds the letter.\n[3s-5s] She turns and walks away along the pier.\n\nAudio: waves, distant church bells.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s3",
+   "type": "scene",
+   "position": {
+    "x": 1600,
+    "y": 0
+   },
+   "data": {
+    "title": "Scene 3",
+    "takes": [
+     1003
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p4",
+   "type": "prompt",
+   "position": {
+    "x": 1920,
+    "y": 0
+   },
+   "data": {
+    "title": "Scene 4",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same pier.\n\nCamera: close-up, static camera.\n\nTimeline:\n[0s-3s] She crumples the letter in her hand.\n[3s-5s] She throws it into the sea and looks away.\n\nAudio: waves, a gust of wind.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s4",
+   "type": "scene",
+   "position": {
+    "x": 2240,
+    "y": 0
+   },
+   "data": {
+    "title": "Scene 4",
+    "takes": [
+     1004
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "jl",
+   "type": "join",
+   "position": {
+    "x": 2600,
+    "y": -170
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2",
+     "s3",
+     "s4"
+    ],
+    "title": "Long"
+   }
+  },
+  {
+   "id": "js",
+   "type": "join",
+   "position": {
+    "x": 2600,
+    "y": 170
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2"
+    ],
+    "title": "Short"
+   }
+  },
+  {
+   "id": "ol",
+   "type": "output",
+   "position": {
+    "x": 2920,
+    "y": -170
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    },
+    "title": "Long, 20 s"
+   }
+  },
+  {
+   "id": "os",
+   "type": "output",
+   "position": {
+    "x": 2920,
+    "y": 170
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    },
+    "title": "Short, 10 s"
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "A short and a long version.\n\nThe same scenes go into two joins: the long one gets all four, the short one the first two. The scenes are shot once; there are two joins and two outputs. A join's order and contents are in its panel on the right."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-frame-s2-start",
+   "source": "s1",
+   "sourceHandle": "frame",
+   "target": "s2",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p3-text-s3-prompt",
+   "source": "p3",
+   "sourceHandle": "text",
+   "target": "s3",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s2-frame-s3-start",
+   "source": "s2",
+   "sourceHandle": "frame",
+   "target": "s3",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p4-text-s4-prompt",
+   "source": "p4",
+   "sourceHandle": "text",
+   "target": "s4",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s3-frame-s4-start",
+   "source": "s3",
+   "sourceHandle": "frame",
+   "target": "s4",
+   "targetHandle": "start"
+  },
+  {
+   "id": "s1-clip-jl-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "jl",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-jl-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "jl",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s3-clip-jl-clips",
+   "source": "s3",
+   "sourceHandle": "clip",
+   "target": "jl",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s4-clip-jl-clips",
+   "source": "s4",
+   "sourceHandle": "clip",
+   "target": "jl",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s1-clip-js-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "js",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-js-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "js",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "jl-video-ol-video",
+   "source": "jl",
+   "sourceHandle": "video",
+   "target": "ol",
+   "targetHandle": "video"
+  },
+  {
+   "id": "js-video-os-video",
+   "source": "js",
+   "sourceHandle": "video",
+   "target": "os",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 2
+}

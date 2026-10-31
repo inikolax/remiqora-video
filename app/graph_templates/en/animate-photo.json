@@ -1,0 +1,114 @@
+{
+ "name": "Bring a photo to life",
+ "about": "Your photo is the first frame; the prompt says what happens next. Upload the photo into the «Photo» node.",
+ "nodes": [
+  {
+   "id": "ph",
+   "type": "photo",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "First frame"
+   }
+  },
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 260
+   },
+   "data": {
+    "title": "Bring to life",
+    "text": "Continue seamlessly from <Picture 1>.\n\nEverything stays as in the picture: the same people, place, light, colours and framing.\n\nCamera: static camera, the framing of the picture.\n\nTimeline:\n[0s-3s] The person in the picture moves slightly and naturally: breathing, blinking, a faint movement in the hair.\n[3s-5s] They give a soft smile, in the same pose and place.\n\nAudio: the quiet sound of the place, no music.\n\nKeep the person's face, hair and outfit exactly the same as in the picture. No new people. No text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 360,
+    "y": 80
+   },
+   "data": {
+    "title": "The photo comes alive",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 720,
+    "y": 80
+   },
+   "data": {
+    "order": [
+     "s1"
+    ]
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 1040,
+    "y": 80
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    }
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Bring a photo to life.\n\nUpload a picture into the «Photo» node — it becomes the first frame (cropped to the video's frame). In the prompt, describe only what happens next. Leave out the place, the people and the light: the photo gives them, and a description that differs from it leads to another scene."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "ph-image-s1-start",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "s1",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-o-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 3
+}

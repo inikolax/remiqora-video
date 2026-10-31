@@ -1,0 +1,247 @@
+/* The graph screen (phase 9): one screen high, the canvas and a panel on the right. Nodes after the storyboard's
+   cards; the header's colour is who does the work (--h), a scene's left rule its chain (--c). */
+body.graph { overflow: hidden; }
+body.graph #app { display: flex; flex-direction: column; height: 100vh; }
+body.graph .head { flex: none; }
+.graph-screen { flex: 1; min-height: 0; display: flex; }
+.graph-canvas { position: relative; flex: 1; min-width: 0; background: var(--bg);
+  background-image: radial-gradient(circle, #23232e 1px, transparent 1.2px); background-size: 24px 24px; }
+.graph-canvas .vue-flow { width: 100%; height: 100%; }
+.graph-tools { position: absolute; left: 16px; top: 14px; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 4px 6px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--rule); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+.graph-tools .ghost { text-decoration: none; }
+.graph-tools .sep { width: 1px; height: 20px; background: var(--rule); margin: 0 4px; }
+.graph-tools .view-only { font-size: 12px; color: var(--faint); padding: 0 4px 0 2px; }
+
+.graph-side { flex: none; width: 360px; overflow-y: auto; padding: 22px; background: var(--panel); border-left: 1px solid var(--rule); display: flex; flex-direction: column; gap: 14px; }
+.gs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gs-title { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.3px; }
+.gs-video { width: 100%; border-radius: 10px; background: #000; display: block; }
+.gs-photo { width: 100%; max-height: 300px; object-fit: contain; border-radius: 10px; background: var(--deep); }
+.gs-ru { margin: 0; font-size: 14px; color: var(--soft); line-height: 1.5; }
+.gs-ru.pre { white-space: pre-wrap; }
+.gs-dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; font-size: 13px; }
+.gs-dl dt { color: var(--muted); }
+.gs-dl dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.gs-dl code { font-size: 12px; color: var(--soft); }
+.gs-prompt summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.gs-prompt pre { white-space: pre-wrap; font-size: 12px; line-height: 1.5; color: var(--soft); background: var(--deep); border: 1px solid var(--rule); border-radius: 8px; padding: 10px; margin: 8px 0 0; max-height: 320px; overflow: auto; }
+.legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--soft); }
+/* «Копия — проект-граф» on the storyboard's graph: at the top of the panel, what the copy is for and what it makes */
+.gv-copy { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--accent-deep); background: var(--accent-bg); }
+.gv-copy b { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text); }
+.gv-copy b svg { color: var(--accent-hi); }
+.gv-copy p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--soft); }
+.gv-copy .btn { align-self: flex-start; }
+.graph-tools .bh-view { padding: 2px; }
+.graph-tools .bh-view > * { padding: 5px 10px; }
+.who-line { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--soft); }
+.who-line i { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+.who-line i.ln { width: 18px; height: 3px; border-radius: 2px; }
+
+/* ---------- nodes ---------- */
+.vue-flow__node-scene, .vue-flow__node-info { cursor: pointer; }
+.gn { position: relative; width: 236px; border-radius: 12px; background: var(--panel); border: 1px solid var(--rule); color: var(--text); font-size: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .3); transition: opacity .15s, border-color .15s; }
+.gn:hover { border-color: var(--rule-3); }
+.gn.dim { opacity: .28; }
+.gn header { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--rule); border-radius: 12px 12px 0 0; }
+.gn header b { font-size: 13px; font-weight: 600; }
+.gn .grow { flex: 1; }
+.gn footer { display: flex; justify-content: space-between; gap: 6px; padding: 6px 10px 8px; color: var(--muted); font-size: 11.5px; }
+.gn .ok { color: var(--ok-hi); }
+.gn .warn { color: var(--warn); }
+.gn .accent { color: var(--accent-hi); }
+.gn .muted { color: var(--faint); }
+/* port labels: outside the node, on the side of their port */
+.gn .pl { position: absolute; transform: translateY(-50%); font-size: 10.5px; color: var(--faint); white-space: nowrap; pointer-events: none; line-height: 1; }
+.gn .pl.in { right: calc(100% + 9px); }
+.gn .pl.out { left: calc(100% + 9px); }
+
+.gscene { height: 228px; display: flex; flex-direction: column; border-left: 3px solid var(--c); }
+.gscene header { color: var(--soft); }
+.gscene header svg { color: var(--c); }
+.gscene header .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.gscene .tag { display: inline-flex; color: var(--muted); }
+.gscene .thumb { position: relative; height: 112px; margin: 8px 10px 0; border-radius: 8px; overflow: hidden; background: var(--field); border: 1px dashed var(--rule-2); flex: none; }
+.gscene .thumb:has(img) { border: 0; }
+.gscene .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gscene .thumb .none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 11.5px; }
+.gscene .thumb .pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 600 18px var(--ui); font-variant-numeric: tabular-nums; background: rgba(15, 15, 20, .55); }
+.gscene .ru { margin: 7px 10px 0; color: var(--soft); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1; }
+.gscene.now { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-deep), 0 6px 18px rgba(0, 0, 0, .3); }
+
+.ginfo { min-height: 120px; }
+.ginfo header { background: color-mix(in srgb, var(--h) 18%, var(--panel)); }
+.ginfo header svg { color: var(--h); }
+.ginfo header .note { font-size: 11px; color: var(--muted); }
+.ginfo .pic { display: block; width: calc(100% - 20px); height: 120px; object-fit: cover; margin: 10px 10px 0; border-radius: 8px; }
+.ginfo .sub { display: block; margin: 8px 10px 0; color: var(--text); font-size: 12.5px; }
+.ginfo .txt { margin: 8px 10px 10px; color: var(--soft); line-height: 1.4; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.ginfo.now { border-color: var(--h); box-shadow: 0 0 0 3px color-mix(in srgb, var(--h) 30%, transparent); }
+
+/* ---------- ports and links ---------- */
+.gn .vue-flow__handle { width: 10px; height: 10px; border: 2px solid var(--bg); background: var(--rule-3); min-width: 0; min-height: 0; }
+.gn .vue-flow__handle.p-look { background: var(--ok); }
+.gn .vue-flow__handle.p-face { background: #eab308; }
+.gn .vue-flow__handle.p-image { background: var(--soft); }
+.gn .vue-flow__handle.p-clip, .gn .vue-flow__handle.p-video { background: #378ADD; }
+.graph-canvas .vue-flow__edge-path { stroke-width: 2; }
+.graph-canvas .e-frame .vue-flow__edge-path { stroke-width: 2.5; }
+.graph-canvas .e-look .vue-flow__edge-path { stroke: var(--ok); opacity: .2; }
+.graph-canvas .e-face .vue-flow__edge-path { stroke: #eab308; stroke-dasharray: 6 4; opacity: .7; }
+.graph-canvas .e-image .vue-flow__edge-path { stroke: var(--soft); stroke-dasharray: 6 4; }
+.graph-canvas .e-clip .vue-flow__edge-path { stroke: #378ADD; opacity: .14; stroke-width: 1.5; }
+.graph-canvas .e-video .vue-flow__edge-path { stroke: #378ADD; }
+.graph-canvas .vue-flow__edge.dim .vue-flow__edge-path { opacity: .06; }
+.graph-canvas .vue-flow__edge.hot .vue-flow__edge-path { opacity: 1; stroke-width: 3; }
+.graph-canvas .vue-flow__edge.animated .vue-flow__edge-path { stroke: var(--accent); opacity: 1; }
+
+@media (max-width: 900px) {
+  .graph-screen { flex-direction: column; }
+  .graph-side { width: auto; max-height: 45vh; border-left: 0; border-top: 1px solid var(--rule); }
+}
+
+/* ---------- the editor (#/g/<id>) ---------- */
+.ge-node { position: relative; width: 240px; border-radius: 12px; background: var(--panel); border: 1px solid var(--rule); color: var(--text); font-size: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .3); padding-bottom: 2px; }
+.ge-node:hover { border-color: var(--rule-3); }
+.ge-node.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-deep), 0 6px 18px rgba(0, 0, 0, .3); }
+.ge-node.now { border-color: var(--h); box-shadow: 0 0 0 3px color-mix(in srgb, var(--h) 35%, transparent); }
+.ge-node.bad { border-color: #6b2a32; }
+.ge-node header { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--rule); border-radius: 12px 12px 0 0;
+  background: color-mix(in srgb, var(--h) 20%, var(--panel)); }
+.ge-node header svg { color: var(--h); flex: none; }
+.ge-node header b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ge-node header .seed { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ge-node .grow { flex: 1; }
+.ge-node .pl { position: absolute; transform: translateY(-50%); font-size: 10.5px; color: var(--faint); white-space: nowrap; pointer-events: none; line-height: 1; }
+.ge-node .pl.in { right: calc(100% + 10px); }
+.ge-node .pl.out { left: calc(100% + 10px); }
+.ge-node .vue-flow__handle { width: 11px; height: 11px; border: 2px solid var(--bg); min-width: 0; min-height: 0; }
+.ge-node .vue-flow__handle.multi { border-radius: 3px; }
+.ge-thumb { position: relative; height: 118px; margin: 8px 10px 0; border-radius: 8px; overflow: hidden; background: var(--field); border: 1px dashed var(--rule-2); }
+.ge-thumb:has(img) { border: 0; }
+.ge-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ge-thumb .none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 11.5px; }
+.ge-body { margin: 8px 10px 0; color: var(--soft); line-height: 1.4; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.t-note .ge-body { -webkit-line-clamp: 10; color: var(--text); }
+.ge-node.t-note { background: #2a2614; border-color: #4a4220; }
+.ge-line { margin: 6px 10px 0; font-size: 12px; line-height: 1.35; color: var(--text); border-left: 2px solid #ec4899; padding-left: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ge-line b { color: var(--soft); font-weight: 500; }
+.ge-warn { display: flex; align-items: center; gap: 5px; margin: 8px 10px 0; font-size: 11.5px; color: var(--warn); }
+.ge-badges { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 10px 0; }
+.ge-badges span { font-size: 10.5px; padding: 2px 6px; border-radius: 5px; background: var(--bg); color: var(--soft); }
+.ge-node footer { padding: 7px 10px 6px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ge-node footer.ok { color: var(--ok-hi); }
+.ge-node footer.todo { color: var(--accent-hi); }
+.ge-node footer.warn { color: var(--warn); }
+.ge-node footer.bad { color: #f87171; white-space: normal; }
+.ge-node footer.now { color: var(--text); }
+/* a tile with its own height: a column; the thumb (else the body) takes what is left, the footer stays at the bottom */
+.ge-node.sized .ge-in { display: flex; flex-direction: column; height: 100%; overflow: hidden; border-radius: inherit; }
+.ge-node.sized .ge-in > * { flex: none; }
+.ge-node.sized .ge-thumb { flex: 1; height: auto; min-height: 60px; }
+.ge-node.sized:not(:has(.ge-thumb)) .ge-body { flex: 1; min-height: 0; display: block; -webkit-line-clamp: unset; overflow: hidden; }
+.ge-node.sized:not(:has(.ge-thumb)):has(.ge-body) .ge-line { flex: none; }
+.ge-rsz { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; opacity: 0; border-radius: 0 0 12px 0; z-index: 2;
+  background: linear-gradient(135deg, transparent 50%, var(--rule-3) 50%, var(--rule-3) 62%, transparent 62%, transparent 75%, var(--rule-3) 75%, var(--rule-3) 87%, transparent 87%); }
+.ge-node:hover .ge-rsz, .ge-node.sel .ge-rsz, .ge-group:hover .ge-rsz, .ge-group.sel .ge-rsz { opacity: 1; }
+.ge-rsz:hover { background-color: color-mix(in srgb, var(--accent) 25%, transparent); }
+.ge-group { position: relative; }
+.ge-group { border-radius: 14px; border: 1.5px dashed var(--rule-3); background: color-mix(in srgb, var(--g) 35%, transparent); }
+.ge-group.sel { border-color: var(--accent); }
+.ge-group b { display: block; padding: 8px 12px; font-size: 14px; color: var(--soft); cursor: grab; }
+.graph-canvas .ge-text .vue-flow__edge-path { stroke: var(--soft); }
+.graph-canvas .ge-look .vue-flow__edge-path { stroke: var(--ok); }
+.graph-canvas .ge-image .vue-flow__edge-path { stroke: #e879f9; }
+.graph-canvas .ge-clip .vue-flow__edge-path, .graph-canvas .ge-video .vue-flow__edge-path { stroke: #378ADD; }
+.graph-canvas .ge-audio .vue-flow__edge-path { stroke: #eab308; }
+.graph-canvas .ge-lora .vue-flow__edge-path { stroke: var(--accent-hi); stroke-dasharray: 5 4; }
+.graph-canvas .vue-flow__edge.selected .vue-flow__edge-path { stroke-width: 3.5; filter: drop-shadow(0 0 3px rgba(255, 255, 255, .5)); }
+.graph-canvas .vue-flow__connection-path { stroke: var(--accent-hi); stroke-width: 2; }
+.graph-canvas .vue-flow__selection { background: rgba(168, 85, 247, .08); border: 1px solid var(--accent); }
+
+.tool-menu { position: relative; }
+.tm-pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; min-width: 220px; display: flex; flex-direction: column; padding: 6px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--rule-2); box-shadow: 0 12px 30px rgba(0, 0, 0, .5); max-height: 70vh; overflow-y: auto; }
+.tm-pop.wide { min-width: 340px; }
+.tm-pop button { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--text); text-align: left; padding: 7px 10px; border-radius: 7px; font-size: 13.5px; }
+.tm-pop button:hover { background: var(--hover); }
+.tm-pop button i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.tm-group { font-size: 11.5px; color: var(--faint); padding: 8px 10px 2px; }
+.tm-pop .tm-tpl { flex-direction: column; align-items: flex-start; gap: 2px; position: relative; padding-right: 28px; }
+.tm-tpl small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.tm-pop .tm-del { position: absolute; right: 8px; top: 6px; font-style: normal; color: var(--muted); width: auto; height: auto; }
+.tm-del:hover { color: var(--bad); }
+.tm-pop .tm-save { border-top: 1px solid var(--rule); border-radius: 0 0 7px 7px; margin-top: 4px; color: var(--accent-hi); }
+
+.graph-side .small, .ni .small { font-size: 12.5px; line-height: 1.45; margin: 0; }
+.gs-title-in { background: transparent; border: 0; border-bottom: 1px solid transparent; font-size: 22px; font-weight: 600; letter-spacing: -.3px; padding: 0 0 2px; color: var(--text); width: 100%; }
+.gs-title-in:hover, .gs-title-in:focus { outline: none; border-bottom-color: var(--rule-2); }
+.out-row { display: flex; align-items: center; gap: 6px; }
+.gs-size { display: flex; align-items: center; gap: 6px; }
+.gs-size .field-in { width: 0; flex: 1; min-width: 0; -moz-appearance: textfield; }
+.gs-size .field-in::-webkit-outer-spin-button, .gs-size .field-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.out-row .grow { flex: 1; justify-content: flex-start; }
+.who-line i.dot { width: 10px; height: 10px; border-radius: 50%; }
+.ni { display: flex; flex-direction: column; gap: 12px; }
+.ni-head { display: flex; align-items: center; gap: 8px; }
+.ni-type { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 15px; }
+.ni-img { width: 100%; max-height: 260px; object-fit: contain; border-radius: 10px; background: #000; display: block; }
+.ni-row { display: flex; align-items: center; gap: 8px; }
+.ni-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ni-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+.ni .stack input[type="range"] { accent-color: var(--accent); }
+.ni label.btn { cursor: pointer; }
+.ni-acts { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--rule); padding-top: 12px; margin-top: 4px; }
+.takes { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.take { position: relative; aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; border: 2px solid transparent; background: var(--field); padding: 0; color: var(--muted); font-size: 11px; }
+.take.on { border-color: var(--accent); }
+.take img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.take b { position: absolute; left: 4px; bottom: 2px; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; }
+.take i { position: absolute; right: 3px; top: 0; font-style: normal; color: #fff; text-shadow: 0 1px 2px #000; font-size: 14px; }
+.order { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; }
+.order li { display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-radius: 6px; background: var(--deep); }
+.order li .grow { flex: 1; }
+.order .ghost { min-height: 26px; padding: 0 8px; }
+.plan-list { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; padding: 8px 10px; border-radius: 8px; background: var(--deep); }
+.plan-list p { margin: 0; font-size: 13px; color: var(--soft); line-height: 1.4; }
+.plan-list b { color: var(--muted); margin-right: 4px; }
+.keys { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 12.5px; }
+.keys dt { color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.keys dd { margin: 0; color: var(--muted); }
+.ni .line-head .line-who-in { flex: 1; min-width: 0; padding: 4px 8px; font-size: 12.5px; }
+.ni .lines-box .ni-row .btn { flex: 1; }
+
+/* what a node is for, what to do next (lib/nodeHelp.ts) */
+.add-pop { max-height: min(70vh, 640px); overflow-y: auto; overscroll-behavior: contain; min-width: 330px;
+  scrollbar-width: thin; scrollbar-color: var(--rule-3) transparent; scrollbar-gutter: stable; }
+.tm-hint { font-size: 12px; color: var(--muted); padding: 6px 10px 4px; line-height: 1.4; }
+.tm-pop .tm-node { align-items: flex-start; gap: 10px; padding: 7px 10px; }
+.tm-ic { flex: none; display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 7px; background: var(--deep); }
+.tm-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tm-tx b { font-weight: 500; font-size: 13.5px; }
+.tm-tx small { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.ge-need { display: flex; align-items: flex-start; gap: 5px; margin: 8px 10px 0; padding: 6px 8px; border-radius: 7px; font-size: 11.5px; line-height: 1.35;
+  color: var(--text); background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ge-need svg { flex: none; margin-top: 1px; }
+.ni-what { margin: -4px 0 0; font-size: 13px; color: var(--soft); line-height: 1.45; display: flex; flex-direction: column; gap: 2px; }
+.ni-what small { font-size: 12px; color: var(--muted); }
+.ni-next { display: flex; flex-direction: column; gap: 3px; padding: 9px 11px; border-radius: 9px; font-size: 13px; line-height: 1.45;
+  background: var(--deep); border: 1px solid var(--rule-2); }
+.ni-next b { font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+.ni-next.need { background: color-mix(in srgb, var(--accent) 12%, transparent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.ni-next.need b { color: var(--accent-hi); }
+
+/* a phone (last: over .tool-menu and .tm-pop above): the toolbar wraps inside the screen, its pop-ups open under it across the screen, not past its edge */
+@media (max-width: 640px) {
+  .graph-tools { right: 16px; flex-wrap: wrap; row-gap: 2px; }
+  .graph-tools .sep { display: none; }
+  .tool-menu { position: static; }
+  .tm-pop, .tm-pop.wide, .add-pop { left: 0; right: 0; min-width: 0; max-height: min(60vh, 520px); }
+}
+
+/* «Видео → видео» without a background: a checkerboard behind the transparent clip */
+.ni-img.ni-alpha { background: repeating-conic-gradient(#8884 0 25%, #0000 0 50%) 0 0 / 16px 16px; }

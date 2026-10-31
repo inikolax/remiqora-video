@@ -1,0 +1,9 @@
+# built by build.ps1 from the NVIDIA RTX Video SDK: never in git (its license)
+*.exe
+*.dll
+*.obj
+*.lib
+*.exp
+*.pdf
+*.zip
+NOTICE.txt

@@ -1,0 +1,194 @@
+/* The help windows (components/help/*), after Remiqora's: the header's window, each screen's guide, the graph's keys
+   sheet. A dimmed, blurred backdrop; a panel with its title row; numbered step cards, a map of the screen, two
+   columns of short lists, tinted boxes for tips and limits; keys as accent chips. */
+body.modal-open { overflow: hidden; }
+.hm-back { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto;
+  padding: 5vh 16px; background: rgba(6, 6, 10, .62); backdrop-filter: blur(4px); }
+.hm-panel { position: relative; width: 100%; max-width: 700px; display: flex; flex-direction: column; border-radius: 16px; outline: none;
+  background: var(--panel); border: 1px solid var(--rule-2); box-shadow: 0 30px 80px rgba(0, 0, 0, .65); overflow: hidden; }
+.hm-panel.wide { max-width: 920px; }
+.hm-panel.narrow { max-width: 540px; }
+.hm-head { display: flex; align-items: center; gap: 12px; padding: 16px 18px 14px 22px; border-bottom: 1px solid var(--rule); background: color-mix(in srgb, var(--deep) 60%, var(--panel)); }
+.hm-head h2 { flex: 1; margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -.2px; color: var(--text); }
+.hm-head h2.grad { background: linear-gradient(90deg, var(--accent-hi), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 21px; font-weight: 700; }
+.hm-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: var(--grad); color: #fff;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, .25); flex: none; }
+.hm-close { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; border: 0;
+  background: var(--field); color: var(--muted); flex: none; }
+.hm-close:hover { background: var(--hover); color: #fff; }
+.hm-body { max-height: 74vh; overflow-y: auto; padding: 22px 24px 26px; }
+.hm-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 12px 22px; border-top: 1px solid var(--rule); font-size: 13px;
+  background: color-mix(in srgb, var(--deep) 60%, var(--panel)); }
+.hm-foot .grow { flex: 1; }
+.hm-foot .btn { min-height: 34px; }
+.hm-fade-enter-active, .hm-fade-leave-active { transition: opacity .16s ease; }
+.hm-fade-enter-active .hm-panel, .hm-fade-leave-active .hm-panel { transition: transform .16s ease; }
+.hm-fade-enter-from, .hm-fade-leave-to { opacity: 0; }
+.hm-fade-enter-from .hm-panel { transform: translateY(8px) scale(.985); }
+@media (prefers-reduced-motion: reduce) { .hm-fade-enter-active, .hm-fade-leave-active, .hm-fade-enter-active .hm-panel { transition: none; } }
+
+/* ---------- a guide ---------- */
+.gm { display: flex; flex-direction: column; gap: 28px; color: var(--soft); font-size: 14px; line-height: 1.55; }
+.gm-lead { margin: 0; font-size: 15.5px; line-height: 1.65; color: var(--text); }
+.gm h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--text); }
+.gm h3 svg { color: var(--accent-hi); flex: none; }
+.gm p { margin: 0; }
+.gm-intro { margin: -2px 0 10px !important; font-size: 13px; color: var(--muted); }
+.gm-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.gm-steps li { display: flex; gap: 11px; padding: 12px 13px; border-radius: 11px; background: color-mix(in srgb, var(--field) 55%, transparent); border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); }
+.gm-steps b { display: block; color: var(--text); font-weight: 500; font-size: 14px; }
+.gm-steps p { margin-top: 2px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.gm-num { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--grad);
+  color: #fff; font: 600 12px/1 var(--ui); }
+/* the map of the screen: zones in the screen's own layout */
+.gm-map { display: grid; gap: 6px; font-size: 12.5px; }
+.gm-zone { display: flex; flex-direction: column; gap: 2px; padding: 9px 12px 10px; border-radius: 9px; min-width: 0;
+  background: color-mix(in srgb, var(--field) 50%, transparent); border: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); }
+.gm-zone b { color: var(--text); font-weight: 500; font-size: 13px; }
+.gm-zone p { color: var(--muted); line-height: 1.45; }
+.gm-zone.accent { background: color-mix(in srgb, var(--accent) 7%, transparent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.gm-zone.accent b { color: var(--accent-hi); }
+.deco-chain { display: flex; gap: 3px; margin-top: 8px; }
+.deco-chain i { flex: 1; height: 8px; border-radius: 3px; background: var(--accent); opacity: .8; }
+.deco-chain i.b { background: var(--accent2); }
+.deco-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 8px; }
+.deco-cards i { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 6px; background: var(--panel); border-left: 2px solid var(--accent); }
+.deco-cards i:nth-child(2) { border-left-color: var(--accent2); }
+.deco-cards s { display: block; height: 4px; border-radius: 2px; background: var(--rule-2); text-decoration: none; }
+.deco-cards s + s { width: 60%; }
+.deco-player { display: flex; align-items: center; justify-content: center; margin-top: 8px; aspect-ratio: 16 / 5.5; border-radius: 7px; background: #000; color: var(--muted); }
+.deco-shots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 8px; }
+.deco-shots i { aspect-ratio: 16 / 9; border-radius: 4px; background: var(--panel); border: 1px dashed var(--rule-2); }
+.deco-shots i.done { background: linear-gradient(135deg, #3a2f52, #2b2440); border: 0; }
+.deco-shots i.now { outline: 2px solid var(--accent); outline-offset: 1px; border: 0; background: #2b2440; }
+.deco-takes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 8px; }
+.deco-takes i { aspect-ratio: 16 / 9; border-radius: 5px; background: linear-gradient(135deg, #34294a, #1f2433); }
+.deco-takes.reels i { background: linear-gradient(135deg, #2d2440, #232332); }
+.deco-rows { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.deco-rows i { height: 7px; border-radius: 3px; background: var(--rule-2); }
+.deco-rows i:nth-child(odd) { width: 80%; }
+.deco-rows i:last-child { height: 14px; width: 100%; background: var(--grad); opacity: .85; border-radius: 5px; }
+.deco-nodes { width: 100%; height: auto; margin-top: 8px; display: block; }
+.deco-nodes rect { fill: var(--panel); stroke: var(--rule-2); }
+.deco-nodes rect.h3 { fill: var(--accent); stroke: none; }
+.deco-nodes rect.ff { fill: #378ADD; stroke: none; }
+.deco-nodes path { fill: none; stroke-width: 1.6; }
+/* small cards: a coloured rule on the left */
+.gm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 6px; }
+.gm-card { padding: 8px 11px 9px; border-radius: 8px; background: color-mix(in srgb, var(--field) 45%, transparent); border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
+  border-left: 3px solid var(--c, var(--rule-3)); }
+.gm-card b { display: block; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.gm-card p { margin-top: 1px; font-size: 11.5px; line-height: 1.4; color: var(--muted); }
+/* a comparison */
+.gm-table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--rule) 80%, transparent); }
+.gm-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; min-width: 520px; }
+.gm-table thead th { background: color-mix(in srgb, var(--field) 70%, transparent); color: var(--text); font-weight: 600; padding: 9px 12px; }
+.gm-table tbody th { color: var(--text); font-weight: 500; white-space: nowrap; }
+.gm-table th, .gm-table td { padding: 9px 12px; vertical-align: top; border-top: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); }
+.gm-table thead th { border-top: 0; }
+.gm-table td { color: var(--soft); }
+/* two columns of short lists */
+.gm-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 30px; }
+.gm-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.gm-list li { font-size: 13.5px; line-height: 1.55; color: var(--soft); }
+.gm-list li::marker { color: var(--accent-hi); }
+.gm-list b { color: var(--text); font-weight: 600; }
+.gm code { background: var(--field); border-radius: 4px; padding: 1px 5px; font: 12px "JetBrains Mono", Consolas, monospace; color: var(--text); }
+/* the keys' own sheet, and the screens of the app's window */
+.gm-keys-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 13px 15px; border-radius: 11px;
+  background: color-mix(in srgb, var(--field) 50%, transparent); border: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); }
+.gm-keys-cta > div { flex: 1; min-width: 14rem; }
+.gm-keys-cta b { color: var(--text); font-size: 14px; }
+.gm-keys-cta p { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.gm-screen-ic { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: none; border-radius: 9px;
+  background: var(--accent-bg); color: var(--accent-hi); }
+.gm-screens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.gm-screen { display: flex; gap: 11px; padding: 12px 13px; border-radius: 11px; background: color-mix(in srgb, var(--field) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); }
+.gm-screen-t { min-width: 0; flex: 1; }
+.gm-screen-t b { color: var(--text); font-weight: 500; }
+.gm-screen-t p { margin-top: 2px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.gm-screen-acts { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 7px; }
+.gm-link { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 2px 0; color: var(--accent-hi); font-size: 12.5px; }
+.gm-link:hover { color: #fff; text-decoration: underline; }
+.hm-foot .gm-link { font-size: 13px; }
+/* tips and limits */
+.gm-boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.gm-box { padding: 13px 15px 14px; border-radius: 11px; }
+.gm-box.tips { background: color-mix(in srgb, var(--accent) 7%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+.gm-box.limits { background: color-mix(in srgb, var(--warn) 6%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); }
+.gm-box.limits h3 svg { color: var(--warn); }
+.gm-box.limits .gm-list li::marker { color: var(--warn); }
+
+/* ---------- the keys sheet ---------- */
+.km { display: flex; flex-direction: column; gap: 26px; }
+.km h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--text); }
+.km h3 svg { color: var(--accent-hi); }
+.km-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.km-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 10px;
+  background: color-mix(in srgb, var(--field) 45%, transparent); border: 1px solid color-mix(in srgb, var(--rule) 55%, transparent); font-size: 14px; color: var(--text); }
+.km-keys { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.km kbd { color: var(--accent-hi); font-family: "JetBrains Mono", Consolas, monospace; font-weight: 500; }
+.km-plus { color: var(--faint); font-size: 12px; }
+.km-mouse { font-size: 12.5px; color: var(--muted); text-align: right; }
+.km-hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+/* ---------- the «Справка» buttons ---------- */
+.guide-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 11px 0 9px; border-radius: 999px; border: 1px solid var(--rule-2);
+  background: transparent; color: var(--soft); font-size: 13px; white-space: nowrap; }
+.guide-btn:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: #fff; }
+.guide-btn svg { color: var(--accent-hi); }
+.guide-btn.compact { width: 28px; min-height: 28px; padding: 0; justify-content: center; }
+.title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.title-row h1 { margin-bottom: 0 !important; }
+.idea-head .title-row { margin-bottom: 6px; }
+.status button.nav-ic { border: 0; background: none; padding: 0; color: var(--muted); font-size: 13px; cursor: pointer; }
+.status button.nav-ic:hover { color: var(--text); text-decoration: underline; }
+.steps .guide-btn { margin-left: 4px; }
+.graph-tools .guide-btn { border-color: transparent; min-height: 30px; }
+.graph-tools .guide-btn:hover { border-color: var(--rule-2); }
+
+@media (max-width: 720px) {
+  .hm-back { padding: 0; }
+  .hm-panel { border-radius: 0; min-height: 100vh; }
+  .hm-body { max-height: none; flex: 1; padding: 18px 16px 22px; }
+  .gm-cols, .gm-boxes, .gm-screens, .km-grid { grid-template-columns: 1fr; }
+  .gm-map { grid-template-columns: 1fr !important; grid-template-areas: none !important; }
+  .gm-map .gm-zone { grid-area: auto !important; }
+}
+
+/* ---------- the templates window (components/graph/TemplatesModal.vue) ---------- */
+.tp { display: flex; flex-direction: column; gap: 22px; }
+.tp h3 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--text); }
+.tp h3 small { font-weight: 400; color: var(--faint); font-size: 12.5px; }
+.tp-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+.tp-bar input { flex: 1; min-width: 200px; }
+.tp-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: -10px; font-size: 13px; }
+.tp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.tp-card { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; border-radius: 12px; text-align: left; color: var(--soft);
+  background: color-mix(in srgb, var(--field) 50%, transparent); border: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); }
+.tp-card:hover { border-color: var(--rule-3); }
+.tp-card.fresh { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-deep); }
+.tp-card b { color: var(--text); font-size: 14px; font-weight: 600; margin-top: 4px; }
+.tp-card p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); flex: 1; }
+.tp-meta { font-size: 11.5px; color: var(--faint); }
+.tp-pic { width: 100%; height: auto; aspect-ratio: 300 / 120; border-radius: 8px; background: var(--deep);
+  background-image: radial-gradient(circle, #20202a 1px, transparent 1.2px); background-size: 12px 12px; }
+.tp-pic path { fill: none; stroke: #5a5a70; stroke-width: 1.2; }
+.tp-pic rect { stroke: rgba(0, 0, 0, .35); stroke-width: .6; opacity: .9; }
+.tp-pic rect.group { fill: none !important; stroke: var(--rule-3); stroke-dasharray: 3 2; }
+.tp-pic rect.note { opacity: .55; }
+.tp-acts { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+.tp-acts .tp-main { min-height: 32px; padding: 0 14px; font-size: 13px; }
+.tp-acts .ghost { min-height: 30px; padding: 0 8px; font-size: 12.5px; }
+.tp-acts .danger-ic { margin-left: auto; }
+.tp-acts .danger-ic:hover { color: var(--bad) !important; }
+.tp-empty { align-items: center; justify-content: center; text-align: center; min-height: 150px; border-style: dashed; cursor: pointer; gap: 6px; }
+.tp-empty svg { color: var(--accent-hi); }
+.tp-empty:hover { border-color: var(--accent); }
+/* «Полная справка»: the way out of a screen's help into the whole reference - in the accent, like the studio's main buttons */
+.btn.gm-full { border: 0; background: var(--grad); color: #fff; font-weight: 600; padding: 0 16px; box-shadow: 0 4px 14px rgba(168, 85, 247, .3); }
+.btn.gm-full:hover:not(:disabled) { filter: brightness(1.1); box-shadow: 0 4px 18px rgba(236, 72, 153, .38); }
+/* it keeps to the right: the spacer gives way, and when the links fill the line the button wraps to the right edge */
+.hm-foot > .grow { flex: 1 1 0; min-width: 0; }
+.btn.gm-full { margin-left: auto; }

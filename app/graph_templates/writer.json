@@ -1,0 +1,69 @@
+{
+ "name": "Сценарист",
+ "about": "Идея и герой → сценарист пишет сцены по кнопке «Написать», «Развернуть в сцены» строит промты, сцены, склейку и выход.",
+ "nodes": [
+  {
+   "id": "i",
+   "type": "idea",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "text": ""
+   }
+  },
+  {
+   "id": "h",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 260
+   },
+   "data": {
+    "title": "Герой"
+   }
+  },
+  {
+   "id": "w",
+   "type": "writer",
+   "position": {
+    "x": 360,
+    "y": 100
+   },
+   "data": {
+    "seconds": 15,
+    "mode": "auto",
+    "mood": "cinematic live-action film"
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Сценарист.\n\n1. Впишите идею в узел «Идея».\n2. В «Герое» — фото и «Описать по фото» или внешность руками (героя можно удалить — будет ролик без людей).\n3. «Написать» у сценариста, потом «Развернуть в сцены»."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "i-text-w-idea",
+   "source": "i",
+   "sourceHandle": "text",
+   "target": "w",
+   "targetHandle": "idea"
+  },
+  {
+   "id": "h-look-w-cast",
+   "source": "h",
+   "sourceHandle": "look",
+   "target": "w",
+   "targetHandle": "cast"
+  }
+ ],
+ "order": 13
+}

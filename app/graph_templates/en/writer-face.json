@@ -1,0 +1,70 @@
+{
+ "name": "Writer and a face from a photo",
+ "about": "Like «Writer», but with «Keep the face from the photo»: the expanded new scenes are shot by Ref2VA with the hero's photo.",
+ "nodes": [
+  {
+   "id": "i",
+   "type": "idea",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "text": ""
+   }
+  },
+  {
+   "id": "h",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 260
+   },
+   "data": {
+    "title": "Hero from a photo"
+   }
+  },
+  {
+   "id": "w",
+   "type": "writer",
+   "position": {
+    "x": 360,
+    "y": 100
+   },
+   "data": {
+    "seconds": 30,
+    "mode": "one",
+    "mood": "cinematic live-action film",
+    "ref_photo": true
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Writer and a face from a photo.\n\nThe hero's photo — frontal, face close up, even light, neutral background: Ref2VA also pulls the surroundings from the picture. «Describe from photo», type in the idea, «Write» and «Expand into scenes» — the new scenes get the photo in their «faces» input."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "i-text-w-idea",
+   "source": "i",
+   "sourceHandle": "text",
+   "target": "w",
+   "targetHandle": "idea"
+  },
+  {
+   "id": "h-look-w-cast",
+   "source": "h",
+   "sourceHandle": "look",
+   "target": "w",
+   "targetHandle": "cast"
+  }
+ ],
+ "order": 14
+}

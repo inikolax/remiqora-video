@@ -1,0 +1,305 @@
+{
+ "name": "Trailer: five places",
+ "about": "Five new shots without people, a track on top, 4K output.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "City",
+    "text": "Epic cinematic trailer look, anamorphic lens, dramatic contrast, deep shadows, subtle film grain.\n\nScene: a ruined city at dawn, smoke rising between towers; no people.\n\nCamera: wide shot, slow push-in.\n\nTimeline:\n[0s-5s] The camera glides slowly forward as the light changes.\n\nAudio: deep low rumble, wind, no music.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "City",
+    "takes": [
+     2001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 300
+   },
+   "data": {
+    "title": "Forest",
+    "text": "Epic cinematic trailer look, anamorphic lens, dramatic contrast, deep shadows, subtle film grain.\n\nScene: a dark pine forest in fog, shafts of light; no people.\n\nCamera: wide shot, slow push-in.\n\nTimeline:\n[0s-5s] The camera glides slowly forward as the light changes.\n\nAudio: deep low rumble, wind, no music.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 300
+   },
+   "data": {
+    "title": "Forest",
+    "takes": [
+     2002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p3",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 600
+   },
+   "data": {
+    "title": "Sea",
+    "text": "Epic cinematic trailer look, anamorphic lens, dramatic contrast, deep shadows, subtle film grain.\n\nScene: a stormy sea at night, a lighthouse beam cutting the rain; no people.\n\nCamera: wide shot, slow push-in.\n\nTimeline:\n[0s-5s] The camera glides slowly forward as the light changes.\n\nAudio: deep low rumble, wind, no music.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s3",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 600
+   },
+   "data": {
+    "title": "Sea",
+    "takes": [
+     2003
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p4",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 900
+   },
+   "data": {
+    "title": "Desert",
+    "text": "Epic cinematic trailer look, anamorphic lens, dramatic contrast, deep shadows, subtle film grain.\n\nScene: an endless desert at noon, heat haze over the dunes; no people.\n\nCamera: wide shot, slow push-in.\n\nTimeline:\n[0s-5s] The camera glides slowly forward as the light changes.\n\nAudio: deep low rumble, wind, no music.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s4",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 900
+   },
+   "data": {
+    "title": "Desert",
+    "takes": [
+     2004
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p5",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 1200
+   },
+   "data": {
+    "title": "Mountains",
+    "text": "Epic cinematic trailer look, anamorphic lens, dramatic contrast, deep shadows, subtle film grain.\n\nScene: snowy mountain peaks at sunset, clouds below; no people.\n\nCamera: wide shot, slow push-in.\n\nTimeline:\n[0s-5s] The camera glides slowly forward as the light changes.\n\nAudio: deep low rumble, wind, no music.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s5",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 1200
+   },
+   "data": {
+    "title": "Mountains",
+    "takes": [
+     2005
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 700,
+    "y": 600
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2",
+     "s3",
+     "s4",
+     "s5"
+    ]
+   }
+  },
+  {
+   "id": "tr",
+   "type": "track",
+   "position": {
+    "x": 700,
+    "y": 900
+   },
+   "data": {
+    "title": "Trailer music"
+   }
+  },
+  {
+   "id": "mu",
+   "type": "music",
+   "position": {
+    "x": 1020,
+    "y": 680
+   },
+   "data": {
+    "volume": 1.0,
+    "scene_volume": 0.4,
+    "offset": 0,
+    "fade_in": 0.5,
+    "fade_out": 3
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 1340,
+    "y": 680
+   },
+   "data": {
+    "output": {
+     "size": "4k",
+     "hdr": false,
+     "fps48": false
+    },
+    "title": "Trailer 4K"
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Trailer: five places.\n\nFive new scenes without people — five shots, each in a new place, 5 s each. Your own track lies on top, the scene sound is turned down to 40%. Output — 4K. Change the places to fit your story."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p3-text-s3-prompt",
+   "source": "p3",
+   "sourceHandle": "text",
+   "target": "s3",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p4-text-s4-prompt",
+   "source": "p4",
+   "sourceHandle": "text",
+   "target": "s4",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p5-text-s5-prompt",
+   "source": "p5",
+   "sourceHandle": "text",
+   "target": "s5",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-j-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s3-clip-j-clips",
+   "source": "s3",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s4-clip-j-clips",
+   "source": "s4",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s5-clip-j-clips",
+   "source": "s5",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-mu-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "mu",
+   "targetHandle": "video"
+  },
+  {
+   "id": "tr-audio-mu-audio",
+   "source": "tr",
+   "sourceHandle": "audio",
+   "target": "mu",
+   "targetHandle": "audio"
+  },
+  {
+   "id": "mu-video-o-video",
+   "source": "mu",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 11
+}

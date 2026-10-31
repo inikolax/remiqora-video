@@ -1,0 +1,62 @@
+# Phase 7: H3 Studio's own engine environment - the worker (app/engine/h3worker.py) runs ComfyUI's core as a library
+# in it, and the lyrics tool (tools/lyrics: Demucs, faster-whisper) and «Звук сцены» run in it too. No Comfy Desktop.
+# install.bat sets it up: the core at the pinned commit in engine/ComfyUI (core.txt), then `uv sync` here -> engine/.venv.
+# The versions are Comfy Desktop's of 2026-10-22 (ComfyUI v0.41.2), checked bit for bit; torch for CUDA 13
+# (Smart App Control lets these files load; torch for CUDA 12.8 in remiqora-video's environment it blocks since 2026-10-23).
+[project]
+name = "h3-studio-engine"
+version = "0.1.0"
+requires-python = "==3.13.*"
+dependencies = [
+    # torch for CUDA 13, as ComfyUI v0.41.2 runs on it
+    "torch==2.12.1",
+    "torchvision==0.27.1",
+    "torchaudio==2.11.0",
+    # ComfyUI's core (its requirements.txt without the frontend, templates, docs, Manager)
+    "comfy-kitchen==0.2.37",
+    "comfy-aimdo==0.5.6",
+    "torchsde==0.2.6",
+    "numpy==2.5.2",
+    "einops==0.8.2",
+    "transformers==5.16.1",
+    "tokenizers==0.23.2",
+    "sentencepiece==0.2.2",
+    "safetensors==0.8.0",
+    "aiohttp==3.14.3",
+    "yarl==1.24.5",
+    "pyyaml==6.0.3",
+    "pillow==12.3.0",
+    "scipy==1.18.1",
+    "tqdm==4.70.0",
+    "psutil==7.2.2",
+    "alembic==1.19.1",
+    "sqlalchemy==2.0.52",
+    "filelock==3.32.5",
+    "av==18.1.0",
+    "requests==2.34.2",
+    "simpleeval==1.0.7",
+    "blake3==1.0.9",
+    "kornia==0.8.3",
+    "spandrel==0.4.2",
+    "pydantic==2.13.5",
+    "pydantic-settings==2.15.0",
+    # the lyrics tool and a scene's voice (tools/lyrics): Demucs, faster-whisper; CUDA 12's cuBLAS for faster-whisper's
+    # CTranslate2 (torch above brings CUDA 13's; its cuDNN 9 serves both)
+    "demucs>=4.0.1",
+    "faster-whisper>=1.1.0",
+    "soundfile>=0.12.1",
+    "nvidia-cublas-cu12",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+torchaudio = { index = "pytorch-cu130" }

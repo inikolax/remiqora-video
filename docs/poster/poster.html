@@ -1,0 +1,109 @@
+<!doctype html>
+<!-- The README's hero poster (docs/hero-poster.png, docs/hero-poster-ru.png). Rendered at 1760×920, 2× pixels, from the
+     1280×800 shots in docs/poster/shots/<lang> (film, montage, board: the same video in both languages) and one frame
+     per model in docs/poster/shots/models: open poster.html?lang=ru|en in a 1760×920 window at device scale 2 and save it. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: 'Inter'; font-weight: 400 900; src: url(../../desktop/renderer/fonts/inter-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF; }
+@font-face { font-family: 'Inter'; font-weight: 400 900; src: url(../../desktop/renderer/fonts/inter-cyrillic.woff2) format('woff2'); unicode-range: U+0400-045F; }
+:root { --ink: #f2f2f7; --soft: #b9b9c9; --mute: #8a8aa0; --line: #2c2c3a; --violet: #c084fc; --pink: #ec4899; }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 1760px; height: 920px; overflow: hidden; }
+body { position: relative; background: radial-gradient(1200px 700px at 78% -10%, #3b1a5a 0%, transparent 60%), radial-gradient(900px 600px at 0% 110%, #2a1236 0%, transparent 55%), #0e0e15; color: var(--ink); font-family: 'Inter', system-ui, sans-serif; }
+.left { position: absolute; left: 72px; top: 52px; width: 800px; }
+.brand { display: flex; align-items: center; gap: 18px; font-weight: 800; font-size: 40px; letter-spacing: -.01em; }
+.brand .logo { width: 72px; height: 72px; border-radius: 18px; background: linear-gradient(135deg, #a855f7, #ec4899); display: grid; place-items: center; font-size: 44px; color: #fff; box-shadow: 0 12px 40px #a855f755; }
+.pills { display: flex; gap: 12px; margin-top: 30px; flex-wrap: nowrap; }
+.pill { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 999px; background: #17171f; font-size: 18px; color: var(--soft); white-space: nowrap; }
+.pill b { width: 11px; height: 11px; border-radius: 50%; background: #4ade80; }
+.pill.new { border-color: #7c2d5a; background: #2a1222; color: #f5c2df; }
+.pill.new b { background: var(--pink); }
+h1 { margin-top: 28px; font-weight: 900; font-size: 104px; line-height: 1.02; letter-spacing: -.035em; white-space: nowrap; }
+html[lang="ru"] h1 { font-size: 84px; }
+h1 em { font-style: normal; background: linear-gradient(90deg, #c084fc, #ec4899); -webkit-background-clip: text; color: transparent; }
+.sub { margin-top: 24px; font-size: 25px; line-height: 1.5; color: var(--soft); max-width: 780px; }
+.sub b { color: var(--ink); font-weight: 700; }
+.flow { display: flex; align-items: center; gap: 10px; margin-top: 28px; }
+.flow span { white-space: nowrap; padding: 11px 18px; border: 1px solid var(--line); border-radius: 10px; background: #17171f; font-size: 21px; font-weight: 600; }
+.flow span:first-child { border-color: #7c3aed; background: #24163a; }
+.flow i { color: #a855f7; font-style: normal; font-size: 22px; }
+.plat { display: flex; gap: 14px; margin-top: 18px; }
+.plat .pill b { background: #4ade80; }
+.plat .pill.g b { background: #8a8aa0; }
+/* the video models, each with a frame it shot */
+.models { position: absolute; left: 72px; bottom: 46px; width: 800px; }
+.models .lbl { font-size: 15px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); }
+.models .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 12px; }
+.model { position: relative; height: 96px; border-radius: 12px; overflow: hidden; border: 1px solid #34344a; background: #17171f; }
+.model img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.model::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 30%, #0b0b12e6 100%); }
+.model div { position: absolute; left: 12px; right: 10px; bottom: 9px; z-index: 1; text-shadow: 0 1px 8px #000, 0 0 2px #000; }
+.model b { display: flex; align-items: center; gap: 7px; font-size: 16px; font-weight: 700; white-space: nowrap; }
+.model b::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.model small { display: block; margin-top: 2px; font-size: 12.5px; color: #d6d6e2; white-space: nowrap; }
+.win { position: absolute; border: 1px solid #34344a; border-radius: 14px; background: #121219; overflow: hidden; box-shadow: 0 30px 80px #000a, 0 0 0 1px #00000060; }
+.win .bar { height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #1b1b25; border-bottom: 1px solid #2a2a38; font-size: 16px; color: var(--soft); }
+.win .bar i { width: 13px; height: 13px; border-radius: 50%; }
+.win .bar i:nth-child(1) { background: #ff5f57; } .win .bar i:nth-child(2) { background: #febc2e; } .win .bar i:nth-child(3) { background: #28c840; }
+.win .bar { height: 42px; }
+.win .bar span { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; margin-right: 50px; white-space: nowrap; overflow: hidden; font-size: 17px; font-weight: 700; color: var(--ink); }
+.win .bar span::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 50%; background: linear-gradient(135deg, #c084fc, #ec4899); box-shadow: 0 0 10px #ec489988; }
+.win img { display: block; width: 100%; }
+</style>
+</head>
+<body>
+<section class="left">
+  <div class="brand"><div class="logo"><svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 7l5.5 11 5.5-11" /></svg></div>Remiqora Video</div>
+  <div class="pills"><span class="pill"><b></b><span data-t="open"></span></span><span class="pill new"><b></b><span data-t="new"></span></span></div>
+  <h1 data-h="head"></h1>
+  <p class="sub" data-h="sub"></p>
+  <div class="flow" data-flow></div>
+  <div class="plat"><span class="pill"><b></b>Windows · NVIDIA RTX 16 GB</span><span class="pill g"><b></b><span data-t="ui"></span></span></div>
+</section>
+<section class="models"><div class="lbl" data-t="models"></div><div class="row">
+  <div class="model" style="--c: #7F77DD"><img src="shots/models/h3.jpg"><div><b>MiniMax H3</b><small data-t="m1"></small></div></div>
+  <div class="model" style="--c: #E8833A"><img src="shots/models/ltx25.jpg"><div><b>LTX 2.5</b><small data-t="m2"></small></div></div>
+  <div class="model" style="--c: #F2B33D"><img src="shots/models/ltx23.jpg"><div><b>LTX 2.3</b><small data-t="m3"></small></div></div>
+  <div class="model" style="--c: #63B32E"><img src="shots/models/wan.jpg"><div><b>WAN 2.2</b><small data-t="m4"></small></div></div>
+  <div class="model" style="--c: #D4537E"><img src="shots/models/krea.jpg"><div><b>Krea 2</b><small data-t="m5"></small></div></div>
+</div></section>
+
+<div class="win" style="left: 950px; top: 36px; width: 760px;"><div class="bar"><i></i><i></i><i></i><span data-t="w1"></span></div><img data-img="1"></div>
+<div class="win" style="left: 950px; top: 586px; width: 372px;"><div class="bar"><i></i><i></i><i></i><span data-t="w2"></span></div><img data-img="2"></div>
+<div class="win" style="left: 1338px; top: 586px; width: 372px;"><div class="bar"><i></i><i></i><i></i><span data-t="w3"></span></div><img data-img="3"></div>
+
+<script>
+const T = {
+  en: {
+    open: 'Open source · Runs 100% locally', new: 'New: one-click installer · official models',
+    head: 'You imagine it.<br><em>AI</em> shoots it.',
+    sub: 'Turn <b>one idea</b> into a storyboard, let <b>H3, LTX or WAN</b> shoot it scene by scene with sound, cut it on a <b>timeline</b> and finish in 1080p, 4K or HDR10.',
+    flow: ['Idea', 'Storyboard', 'Shoot', 'Montage', '4K / HDR'], ui: 'UI: English · Русский',
+    models: 'Video models · official weights, on your GPU',
+    m1: 'acting · sound · faces', m2: 'picture + sound', m3: 'music videos', m4: 'fast · Apache-2.0', m5: 'pictures',
+    w1: 'Idea → finished film', w2: 'Montage', w3: 'Storyboard',
+  },
+  ru: {
+    open: 'Открытый код · 100% локально', new: 'Новое: установщик · официальные модели',
+    head: 'Ты придумываешь.<br><em>AI</em> снимает.',
+    sub: 'Превращай <b>одну идею</b> в раскадровку, снимай её сцена за сценой со звуком на <b>H3, LTX или WAN</b>, монтируй на <b>таймлайне</b> и выводи в 1080p, 4K или HDR10.',
+    flow: ['Идея', 'Раскадровка', 'Съёмка', 'Монтаж', '4K / HDR'], ui: 'Интерфейс: Русский · English',
+    models: 'Видеомодели · официальные веса, на вашей видеокарте',
+    m1: 'игра · звук · лица', m2: 'картинка + звук', m3: 'клипы под трек', m4: 'быстро · Apache-2.0', m5: 'картинки',
+    w1: 'Идея → готовый ролик', w2: 'Монтаж', w3: 'Раскадровка',
+  },
+};
+const lang = new URLSearchParams(location.search).get('lang') === 'ru' ? 'ru' : 'en';
+const t = T[lang];
+document.documentElement.lang = lang;
+for (const el of document.querySelectorAll('[data-t]')) el.textContent = t[el.dataset.t];
+for (const el of document.querySelectorAll('[data-h]')) el.innerHTML = t[el.dataset.h];
+document.querySelector('[data-flow]').innerHTML = t.flow.map((s) => `<span>${s}</span>`).join('<i>→</i>');
+const dir = `shots/${lang}/`;   // 1280×800 shots: the interface stays readable at the poster's size
+const imgs = { 1: 'film.png', 2: 'montage.png', 3: 'board.png' };
+for (const el of document.querySelectorAll('[data-img]')) el.src = dir + imgs[el.dataset.img];
+</script>
+</body>
+</html>

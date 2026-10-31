@@ -1,0 +1,23 @@
+{
+  "name": "remiqora-video-desktop",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Remiqora Video: first-run setup (engine, tools, official model sets), the app in a window, installer",
+  "author": "Nikolay Cherkashin",
+  "license": "GPL-3.0-only",
+  "main": "src/main.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "prepare-resources": "node scripts/prepare-resources.js",
+    "dist": "npm --prefix ../frontend run page && npm run prepare-resources && electron-builder",
+    "dist:dir": "npm --prefix ../frontend run page && npm run prepare-resources && electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3"
+  }
+}

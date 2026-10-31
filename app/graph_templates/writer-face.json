@@ -1,0 +1,70 @@
+{
+ "name": "Сценарист и лицо по фото",
+ "about": "Как «Сценарист», но с «Держать лицо по фото»: развёрнутые новые сцены снимаются Ref2VA с фото героя.",
+ "nodes": [
+  {
+   "id": "i",
+   "type": "idea",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "text": ""
+   }
+  },
+  {
+   "id": "h",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 260
+   },
+   "data": {
+    "title": "Герой с фото"
+   }
+  },
+  {
+   "id": "w",
+   "type": "writer",
+   "position": {
+    "x": 360,
+    "y": 100
+   },
+   "data": {
+    "seconds": 30,
+    "mode": "one",
+    "mood": "cinematic live-action film",
+    "ref_photo": true
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Сценарист и лицо по фото.\n\nФото героя — анфас, лицо крупно, ровный свет, нейтральный фон: Ref2VA тянет из снимка и обстановку. «Описать по фото», впишите идею, «Написать» и «Развернуть в сцены» — новые сцены получат фото во вход «лица»."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "i-text-w-idea",
+   "source": "i",
+   "sourceHandle": "text",
+   "target": "w",
+   "targetHandle": "idea"
+  },
+  {
+   "id": "h-look-w-cast",
+   "source": "h",
+   "sourceHandle": "look",
+   "target": "w",
+   "targetHandle": "cast"
+  }
+ ],
+ "order": 14
+}

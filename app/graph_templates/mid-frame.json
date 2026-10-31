@@ -1,0 +1,164 @@
+{
+ "name": "Другой ракурс с середины",
+ "about": "«Кадр» в момент 2,5 с первой сцены — старт второй: тот же момент другим планом.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Общий план",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene: a sunny rooftop garden; an adult man, about 30, in a white shirt, waters the plants.\n\nCamera: wide shot, static camera.\n\nTimeline:\n[0s-2s] He waters a row of tomatoes.\n[2s-5s] He puts the watering can down and wipes his forehead.\n\nAudio: water pouring, birds, distant city.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Общий план",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "fr",
+   "type": "frame",
+   "position": {
+    "x": 680,
+    "y": 220
+   },
+   "data": {
+    "title": "Кадр на 2,5 с",
+    "at": 2.5
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 680,
+    "y": 460
+   },
+   "data": {
+    "title": "Крупно",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same rooftop.\n\nCamera: close-up on his face, slow push-in.\n\nTimeline:\n[0s-3s] He looks at the plants and smiles.\n[3s-5s] He closes his eyes in the sun.\n\nAudio: birds, a light breeze.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 1000,
+    "y": 300
+   },
+   "data": {
+    "title": "Крупно",
+    "takes": [
+     1002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 1360,
+    "y": 100
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2"
+    ]
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 1680,
+    "y": 100
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    }
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Другой ракурс с середины.\n\nУзел «Кадр» берёт кадр из сцены в момент 2,5 с, и вторая сцена стартует с него — тот же момент, другой план. Сдвиньте момент в панели «Кадра». В склейке это обычная смена плана, без повтора кадра."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-clip-fr-clip",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "fr",
+   "targetHandle": "clip"
+  },
+  {
+   "id": "fr-image-s2-start",
+   "source": "fr",
+   "sourceHandle": "image",
+   "target": "s2",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-j-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-o-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 7
+}

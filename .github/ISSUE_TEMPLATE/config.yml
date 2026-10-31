@@ -1,0 +1,5 @@
+blank_issues_enabled: true   # questions go into a blank issue (Discussions is not enabled)
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/inikolax/remiqora-video/security/advisories/new
+    about: Please report security issues privately, not as a public issue.

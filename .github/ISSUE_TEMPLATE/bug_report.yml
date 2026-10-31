@@ -1,0 +1,109 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Issues can be written in English or Russian.
+        For questions and "how do I…", please open a blank issue instead.
+        Please don't attach model weights, your `.env` file or `data\hf_token`.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      options:
+        - Idea / writer / storyboard
+        - Shooting a film
+        - Music video from a song
+        - Montage
+        - Graph
+        - Video → video
+        - Lab
+        - Finish (1080p / 4K / HDR10, 48 fps)
+        - Models page / downloads
+        - Installer (.exe)
+        - Setup scripts (from source)
+        - Interface / help
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: model
+    attributes:
+      label: Which model?
+      multiple: true
+      options:
+        - MiniMax H3
+        - H3 Ref2VA (faces from photos)
+        - LTX 2.5
+        - LTX 2.3
+        - WAN 2.2 5B / FastWan
+        - Krea 2 (pictures)
+        - The writer (llama.cpp / LM Studio)
+        - Not model-related
+    validations:
+      required: true
+  - type: dropdown
+    id: weights
+    attributes:
+      label: Which weights?
+      options:
+        - The official ones from the installer or the Models page
+        - My own file (another quant, a fine-tune)
+        - Not model-related
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead? Screenshots are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is it installed?
+      options:
+        - The .exe installer
+        - From source (setup scripts)
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: GPU, video memory, RAM and NVIDIA driver
+      placeholder: "e.g. RTX 4080 16 GB, 64 GB RAM, driver 617"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Remiqora Video version
+      description: From source, the commit shown at the bottom of the app (or `git rev-parse --short HEAD`). With the installer, the version shown in Windows Settings → Apps → Installed apps.
+      placeholder: "e.g. a97fae5, or 0.1.0"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        From the app's `data\` folder: `h3worker.log` (the video worker), `llama-server.log` (the writer), `comfy.log`.
+        With the installer the app is in `%LOCALAPPDATA%\RemiqoraVideo\app`; also attach `%LOCALAPPDATA%\RemiqoraVideo\logs\app-server.log` (the app's server) and, for install problems, `setup.log` from that folder.
+        Please trim to the relevant part.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and didn't find this one.
+          required: true

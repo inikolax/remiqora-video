@@ -1,0 +1,69 @@
+{
+ "name": "Writer",
+ "about": "Idea and hero → the Writer writes the scenes at the «Write» button, «Expand into scenes» builds prompts, scenes, a join and an output.",
+ "nodes": [
+  {
+   "id": "i",
+   "type": "idea",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "text": ""
+   }
+  },
+  {
+   "id": "h",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 260
+   },
+   "data": {
+    "title": "Hero"
+   }
+  },
+  {
+   "id": "w",
+   "type": "writer",
+   "position": {
+    "x": 360,
+    "y": 100
+   },
+   "data": {
+    "seconds": 15,
+    "mode": "auto",
+    "mood": "cinematic live-action film"
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Writer.\n\n1. Type the idea into the «Idea» node.\n2. In the «Hero» — a photo and «Describe from photo», or the look by hand (the hero can be deleted — the video will have no people).\n3. «Write» on the Writer, then «Expand into scenes»."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "i-text-w-idea",
+   "source": "i",
+   "sourceHandle": "text",
+   "target": "w",
+   "targetHandle": "idea"
+  },
+  {
+   "id": "h-look-w-cast",
+   "source": "h",
+   "sourceHandle": "look",
+   "target": "w",
+   "targetHandle": "cast"
+  }
+ ],
+ "order": 13
+}

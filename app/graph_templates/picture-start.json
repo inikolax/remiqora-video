@@ -1,0 +1,133 @@
+{
+ "name": "Картинка → сцена",
+ "about": "Krea 2 (движок krea2-ui) рисует первый кадр по промту, H3 его оживляет.",
+ "nodes": [
+  {
+   "id": "p0",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Картинка",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nA cozy café at night, warm pendant lights, rain on the large front window, an adult woman about 30 with a dark bob sits at the window with a cup of coffee, photorealistic, cinematic.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "pic",
+   "type": "picture",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "seed": 7
+   }
+  },
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 320,
+    "y": 260
+   },
+   "data": {
+    "title": "Сцена",
+    "text": "Continue seamlessly from <Picture 1>.\n\nEverything stays as in the picture: the same people, place, light, colours and framing.\n\nCamera: static camera, the framing of the picture.\n\nTimeline:\n[0s-3s] The woman in the picture moves slightly and naturally: breathing, a faint movement in the hair and clothes.\n[3s-5s] She gives a soft smile, in the same pose and place.\n\nAudio: the quiet sound of the place, no music.\n\nKeep the person's face, hair and outfit exactly the same as in the picture. No new people. No text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 680,
+    "y": 80
+   },
+   "data": {
+    "title": "Сцена",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 1040,
+    "y": 80
+   },
+   "data": {
+    "order": [
+     "s1"
+    ]
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 1360,
+    "y": 80
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    }
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Картинка → сцена.\n\nKrea 2 (движок krea2-ui) рисует первый кадр по промту «Картинка» за ~20 с, H3 его оживляет. Место, людей и свет описывайте в промте картинки. В промте «Сцена» — только что происходит дальше: если там другое место, модель снимет другую сцену. Не понравилась картинка — «Другой» сид в панели «Картинки»."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p0-text-pic-text",
+   "source": "p0",
+   "sourceHandle": "text",
+   "target": "pic",
+   "targetHandle": "text"
+  },
+  {
+   "id": "pic-image-s1-start",
+   "source": "pic",
+   "sourceHandle": "image",
+   "target": "s1",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-o-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 4
+}

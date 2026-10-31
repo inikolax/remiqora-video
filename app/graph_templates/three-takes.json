@@ -1,0 +1,98 @@
+{
+ "name": "Три дубля и лучший",
+ "about": "Одна сцена с тремя сидами: снимите все, выберите лучший — он пойдёт в склейку.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene: a quiet seaside pier at dawn; an adult woman, about 30, with long dark hair, in a beige coat, walks toward the camera.\n\nCamera: medium shot, slow push-in.\n\nTimeline:\n[0s-3s] She walks along the pier toward the camera.\n[3s-5s] She stops and looks at the sea.\n\nAudio: waves, seagulls, soft wind.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена",
+    "takes": [
+     1001,
+     1002,
+     1003
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 680,
+    "y": 0
+   },
+   "data": {
+    "order": [
+     "s1"
+    ]
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 1000,
+    "y": 0
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    }
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Три дубля и лучший.\n\nУ сцены три сида. «Снять до сюда» снимет выбранный; переключайте дубли в панели сцены и снимайте каждый — все лягут в кэш, в склейку идёт выбранный. «Ещё дубль» добавит четвёртый, «Очистить дубли» уберёт невыбранные."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-o-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 8
+}

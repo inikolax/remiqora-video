@@ -1,0 +1,19 @@
+// «Your own LoRA and another model»: the LoRA folders per model (config.py, loras.py), the LoRA of the video and of a scene,
+// then the video's model switched and compared in the lab.
+import { scenario, steps, step, go, see, tip, meta, GROUP_EN } from '../kit'
+
+export default scenario('loras', 'Your own LoRA and another model', `At the end the video is shot with your LoRA, you know what happens when you change the model, and you see one scene on all models side by side.`,
+  meta('10 minutes plus reshooting; any model. You need a LoRA file (.safetensors) made for exactly the model you shoot with.') +
+  steps(
+    step('Put the file into the model\'s folder', `<p>Each model has its own folders; one model's LoRA doesn't fit another. By default: H3 — <code>models\\loras\\h3</code>, LTX 2.3 — <code>models\\loras\\ltx23</code>, LTX 2.5 — <code>models\\loras\\ltx25</code>, WAN and FastWan — <code>models\\loras\\wan5b</code>, Krea — <code>models\\loras\\krea2</code>. The file shows up in the lists by itself; no restart needed.</p>`,
+      'In .env these are LORA_DIRS, LTX23_LORA_DIRS, LTX25_LORA_DIRS, WAN_LORA_DIRS, KREA_LORA_DIRS.'),
+    step('Check it on the «Models» page', `<p>The «LoRA» section lists the H3 folders, each with an «Open» button. The «LTX 2.5», «LTX 2.3», «WAN 2.2 5B» sections have «LoRA folders for …» (one per line, «Add folder…») and a «LoRA for …» list: the file kind, size, rank, «trigger: …». A yellow label means the file seems to be for another model or isn't tested on this one; full weights instead of a LoRA are blocked.</p>${go('/models/lora', 'Open «Models» → LoRA')}`),
+    step('Choose a LoRA for the video', `<p>Open the video from the list on the home screen. In the shooting panel, under «LoRA», «+ from library»: only LoRAs of the video's model are there. The slider is the strength from 0 to 1.5; 0.6–1 is usually enough, higher and the LoRA's style overrides the prompt. × removes it. Changing the LoRA or its strength reshoots the whole video.</p>`),
+    step('Enter the trigger', `<p>If the LoRA has a trigger word (shown in the «Models» list), without it in the prompt the LoRA may barely work. Enter it in the «Prompt for the model, as is» field. A writer's scene builds its prompt from fields: click «Write the prompt myself» in the inspector, and the built prompt moves into that field.</p>`),
+    step('Give one scene its own LoRA', `<p>In the scene inspector, «Scene LoRA»: «Same as the video», «Own» (your own set and strength from the LoRAs of this scene's model, «Add LoRA…») or «No LoRA». This scene and the continuations after it are reshot; the rest come from the cache.</p>`),
+    step('Change the video\'s model', `<p>«Model» in the shooting panel. The whole video is reshot; what the previous model shot stays in the cache — switch back and the video builds without reshooting. Under the list is what the new model can't do: WAN doesn't speak and shoots without sound, only H3 keeps faces from a photo (Ref2VA). The previous model's LoRAs stay in the list but have no effect — a yellow line «Some LoRAs are for another model».</p>`,
+      'Scene length: H3 up to 15 s, LTX up to 10 s, WAN only 5 s. A scene longer than the limit comes out shorter; the inspector warns about it.'),
+    step('Compare in the Lab', `<p>Copy the scene's prompt into the Lab, add the LoRA and click «Shoot on all models — compare»: the same prompt and seed on each model that has weights. The LoRA goes only to its own model; the others shoot without it.</p>${go('/lab', 'Open the Lab')}`),
+  ) +
+  tip(`Find the strength in the Lab, not in the video: there one scene is reshot, while in the video a strength change reshoots them all. Keep the seed the same and change only the slider.`) +
+  `<p class="note">Next: ${see('shoot', 'Quality, LoRA, music, output')}, ${see('video-models', 'Video models')}, ${see('models', 'Models and settings')}</p>`, GROUP_EN)

@@ -1,0 +1,227 @@
+{
+ "name": "Свой стиль через LoRA",
+ "about": "Один набор LoRA во все сцены цепочки; связь можно снять у любой сцены.",
+ "nodes": [
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 1",
+    "text": "Realistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene: a quiet seaside pier at dawn; an adult woman, about 30, with long dark hair, in a beige coat, walks toward the camera.\n\nCamera: medium shot, slow push-in.\n\nTimeline:\n[0s-3s] She walks along the pier toward the camera.\n[3s-5s] She stops and looks at the sea.\n\nAudio: waves, seagulls, soft wind.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 320,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 1",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 640,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 2",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same pier.\n\nCamera: medium close-up, static camera.\n\nTimeline:\n[0s-3s] She takes a folded letter out of her pocket.\n[3s-5s] She reads it, her face softening.\n\nAudio: waves, paper rustling.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 960,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 2",
+    "takes": [
+     1002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "p3",
+   "type": "prompt",
+   "position": {
+    "x": 1280,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 3",
+    "text": "Continue seamlessly from <Picture 1>.\n\nRealistic live-action cinematic look, soft natural light, shallow depth of field, film grain.\n\nScene continues on the same pier.\n\nCamera: wide shot, slow pull back.\n\nTimeline:\n[0s-3s] She smiles and folds the letter.\n[3s-5s] She turns and walks away along the pier.\n\nAudio: waves, distant church bells.\n\nNo text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s3",
+   "type": "scene",
+   "position": {
+    "x": 1600,
+    "y": 0
+   },
+   "data": {
+    "title": "Сцена 3",
+    "takes": [
+     1003
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "lo",
+   "type": "lora",
+   "position": {
+    "x": 320,
+    "y": 320
+   },
+   "data": {
+    "title": "Стиль",
+    "items": []
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 1960,
+    "y": 0
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2",
+     "s3"
+    ]
+   }
+  },
+  {
+   "id": "o",
+   "type": "output",
+   "position": {
+    "x": 2280,
+    "y": 0
+   },
+   "data": {
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    }
+   }
+  },
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -260
+   },
+   "data": {
+    "text": "Свой стиль через LoRA.\n\nВ узле «LoRA» выберите стиль из библиотеки и силу (обычно 0,6–1). Он идёт во вход «LoRA» всех трёх сцен — уберите связь, чтобы снять сцену без него. Смена LoRA или силы переснимает сцены."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "p1-text-s1-prompt",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p2-text-s2-prompt",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s1-frame-s2-start",
+   "source": "s1",
+   "sourceHandle": "frame",
+   "target": "s2",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p3-text-s3-prompt",
+   "source": "p3",
+   "sourceHandle": "text",
+   "target": "s3",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "s2-frame-s3-start",
+   "source": "s2",
+   "sourceHandle": "frame",
+   "target": "s3",
+   "targetHandle": "start"
+  },
+  {
+   "id": "lo-lora-s1-lora",
+   "source": "lo",
+   "sourceHandle": "lora",
+   "target": "s1",
+   "targetHandle": "lora"
+  },
+  {
+   "id": "lo-lora-s2-lora",
+   "source": "lo",
+   "sourceHandle": "lora",
+   "target": "s2",
+   "targetHandle": "lora"
+  },
+  {
+   "id": "lo-lora-s3-lora",
+   "source": "lo",
+   "sourceHandle": "lora",
+   "target": "s3",
+   "targetHandle": "lora"
+  },
+  {
+   "id": "s1-clip-j-clips",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-clip-j-clips",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s3-clip-j-clips",
+   "source": "s3",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-video-o-video",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o",
+   "targetHandle": "video"
+  }
+ ],
+ "order": 9
+}

@@ -1,0 +1,379 @@
+{
+  "schema": 1,
+  "_comment": "What a clean install downloads: the tools (pinned, sha256 from the GitHub release digest or computed once) and the model sets. Only official weights: the authors' repositories or Comfy-Org's ComfyUI repacks of them. Uncensored weights are never here; the user puts them in and picks them on the Models page. The sets' bytes and sha256 come from the Hugging Face API: python tools/make_manifest.py fills them in.",
+  "requirements": {
+    "minDriver": 580,
+    "minComputeCapability": 7.5,
+    "minVramMiB": 15000,
+    "minFreeBytes": 70000000000
+  },
+  "tools": {
+    "uv": {
+      "version": "0.13.1",
+      "url": "https://github.com/astral-sh/uv/releases/download/0.13.1/uv-x86_64-pc-windows-msvc.zip",
+      "sha256": "3b2661a463a5baea7f5076ea2b25ab71d77f36a6c0d809e5350651792f80a672",
+      "bytes": 15308685,
+      "bin": "uv.exe"
+    },
+    "python": {
+      "_comment": "python.org's own build as a NuGet package: the same signed binaries as its installer (Smart App Control lets them run; uv's downloaded Python it may block), unpacked, nothing registered in Windows",
+      "version": "3.13.17",
+      "url": "https://www.nuget.org/api/v2/package/python/3.13.17",
+      "sha256": "dce409744b088f94c6e37ba41f8100c384c27e029e843237364c602d30d475e5",
+      "bytes": 14826465,
+      "bin": "tools/python.exe"
+    },
+    "ffmpeg": {
+      "version": "9.0.1",
+      "url": "https://github.com/GyanD/codexffmpeg/releases/download/9.0.1/ffmpeg-9.0.1-essentials_build.zip",
+      "sha256": "fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9",
+      "bytes": 111253802,
+      "binDir": "ffmpeg-9.0.1-essentials_build/bin"
+    },
+    "comfyCore": {
+      "_comment": "ComfyUI's core at the commit of engine/core.txt, as GitHub's source archive (no git needed); verified by the commit in the URL",
+      "approxBytes": 40000000
+    },
+    "llama": {
+      "_comment": "llama.cpp's official CUDA build for the writer. Not signed: Smart App Control may block it, the app then explains the ways out",
+      "version": "b11896",
+      "files": [
+        {
+          "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11896/llama-b11896-bin-win-cuda-13.4-x64.zip",
+          "sha256": "eda295f3c95e18deff8bec7148f2eafcc1d5da7933500d678b521f351ec335fa",
+          "bytes": 164721499
+        },
+        {
+          "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11896/cudart-llama-bin-win-cuda-13.4-x64.zip",
+          "sha256": "738f8c251ac22b70c3ae6f83a10cf222725df0395246a2cf58f32bdb85fbe668",
+          "bytes": 423535356
+        }
+      ]
+    },
+    "rife": {
+      "_comment": "RIFE (frame interpolation to 48 fps), nihui's ncnn-vulkan build; sha256 computed from the download (the release has no digest)",
+      "version": "20221029",
+      "url": "https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-windows.zip",
+      "sha256": "d8e4d772d26cd8006ef0ad0bc82eb191b53c68677d1ae2f42506d74cbbbea606",
+      "bytes": 431540241,
+      "dir": "rife-ncnn-vulkan-20221029-windows"
+    },
+    "rtxvsr": {
+      "_comment": "RTX Video (1080p / 4K / HDR10 in the final): rtx_vsr.exe with NVIDIA's nvngx DLLs, shipped inside the installer (desktop/resources/rtxvsr, built by tools/rtxvsr/build.ps1); licensed under the NVIDIA RTX Video SDK license, not this repository's",
+      "approxBytes": 60000000
+    },
+    "music": {
+      "_comment": "The words of a song: Whisper large-v3 (faster-whisper) and Demucs htdemucs (demucs 4.1 takes it from Hugging Face), both into HF_HOME, fetched by the engine's own code so the app never downloads mid-job",
+      "whisper": "large-v3",
+      "demucs": "htdemucs",
+      "approxBytes": 3300000000
+    },
+    "checks": {
+      "_comment": "The clip checks' small models (YuNet, SFace, WeSpeaker), fetched by the app's own code into data/models",
+      "approxBytes": 40000000
+    }
+  },
+  "profiles": {
+    "minimum": [
+      "h3",
+      "writer"
+    ],
+    "faces": [
+      "h3",
+      "writer",
+      "krea",
+      "flux2",
+      "ref2va"
+    ],
+    "all": [
+      "h3",
+      "writer",
+      "krea",
+      "flux2",
+      "ref2va",
+      "ltx25",
+      "ltx23",
+      "wan"
+    ]
+  },
+  "sets": {
+    "h3": {
+      "title": "H3",
+      "license": {
+        "name": "MiniMax H3 Community License",
+        "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3"
+      },
+      "files": [
+        {
+          "repo": "Comfy-Org/MiniMax-H3",
+          "path": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "kind": "diffusion_models",
+          "bytes": 20970379616,
+          "sha256": "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
+        },
+        {
+          "repo": "Comfy-Org/MiniMax-H3",
+          "path": "loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+          "kind": "loras",
+          "bytes": 1956193000,
+          "sha256": "2339acdf19bfe123f46b971ea35d367a84adb85de43627e1eceafa5a5b2b111e"
+        },
+        {
+          "repo": "Comfy-Org/MiniMax-H3",
+          "path": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "kind": "text_encoders",
+          "bytes": 15687142551,
+          "sha256": "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6"
+        },
+        {
+          "repo": "Comfy-Org/MiniMax-H3",
+          "path": "vae/minimax_h3_video_vae_fp16.safetensors",
+          "kind": "vae",
+          "bytes": 5207808496,
+          "sha256": "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522"
+        },
+        {
+          "repo": "Comfy-Org/MiniMax-H3",
+          "path": "vae/minimax_h3_audio_vae_fp32.safetensors",
+          "kind": "vae",
+          "bytes": 605254808,
+          "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
+        }
+      ],
+      "bytes": 44426778471
+    },
+    "writer": {
+      "title": "Writer",
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://huggingface.co/google/gemma-4-E4B-it"
+      },
+      "tools": [
+        "llama"
+      ],
+      "files": [
+        {
+          "repo": "ggml-org/gemma-4-E4B-it-GGUF",
+          "path": "gemma-4-E4B-it-Q8_0.gguf",
+          "kind": "llm",
+          "bytes": 8031242688,
+          "sha256": "34be82b17b4942d389b9b527170c4b058027abdd32531fda063d3d97dd8ce80a"
+        },
+        {
+          "repo": "ggml-org/gemma-4-E4B-it-GGUF",
+          "path": "mmproj-gemma-4-E4B-it-Q8_0.gguf",
+          "kind": "llm",
+          "bytes": 559874816,
+          "sha256": "197f49a93027f9843772bd24a6a9e0be2a32a788de5a3def330e9c585d86edd1"
+        }
+      ],
+      "bytes": 8591117504
+    },
+    "krea": {
+      "title": "Krea 2",
+      "license": {
+        "name": "Krea 2 License",
+        "url": "https://huggingface.co/Comfy-Org/Krea-2/blob/main/LICENSE.pdf"
+      },
+      "files": [
+        {
+          "repo": "Comfy-Org/Krea-2",
+          "path": "diffusion_models/krea2_turbo_int8_convrot.safetensors",
+          "kind": "diffusion_models",
+          "bytes": 13492686496,
+          "sha256": "8e4eeda70dd5037ab1ba2bef6b417f9f901e26093117cf397f741fc1fdaaf3f1"
+        },
+        {
+          "repo": "Comfy-Org/Krea-2",
+          "path": "text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+          "kind": "text_encoders",
+          "bytes": 5242467968,
+          "sha256": "54bd5144df0bbc25dd6ccadfcb826b521445a1b06ae5a42570bdd2974ca87094"
+        },
+        {
+          "repo": "Comfy-Org/Krea-2",
+          "path": "vae/qwen_image_vae.safetensors",
+          "kind": "vae",
+          "bytes": 253806246,
+          "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f"
+        }
+      ],
+      "bytes": 18988960710
+    },
+    "flux2": {
+      "title": "FLUX.2 Klein 4B",
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B"
+      },
+      "files": [
+        {
+          "repo": "Comfy-Org/Flux-2-Klein-4B",
+          "path": "split_files/diffusion_models/flux-2-klein-4b.safetensors",
+          "kind": "diffusion_models",
+          "bytes": 7751105712,
+          "sha256": "ec3d4e733a771f61c052fb4856c48b336c55eaf2c65487c2a1faeb9bbda7a343"
+        },
+        {
+          "repo": "Comfy-Org/z_image_turbo",
+          "path": "split_files/text_encoders/qwen_3_4b_fp8_mixed.safetensors",
+          "kind": "text_encoders",
+          "bytes": 5631994051,
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        {
+          "repo": "Comfy-Org/Flux-2-Klein-4B",
+          "path": "split_files/vae/flux2-vae.safetensors",
+          "kind": "vae",
+          "bytes": 336211292,
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        }
+      ],
+      "bytes": 13719311055
+    },
+    "ref2va": {
+      "title": "Ref2VA",
+      "license": {
+        "name": "MiniMax H3 Community License",
+        "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3"
+      },
+      "needs": [
+        "h3"
+      ],
+      "files": [
+        {
+          "repo": "Comfy-Org/MiniMax-H3",
+          "path": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "kind": "diffusion_models",
+          "bytes": 20970379616,
+          "sha256": "9255f52b6677845ad238f20dfaafa94727053694127ab7f255c048f0f9365779"
+        },
+        {
+          "repo": "Comfy-Org/MiniMax-H3",
+          "path": "loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+          "kind": "loras",
+          "bytes": 1956193000,
+          "sha256": "5b9ab5ade15d0775676d01a907268a69a1468dc6033b3b0d3ded5502f3ebb84c"
+        }
+      ],
+      "bytes": 22926572616
+    },
+    "ltx25": {
+      "title": "LTX 2.5",
+      "license": {
+        "name": "LTX-2 Community License",
+        "url": "https://huggingface.co/Lightricks/LTX-2.5"
+      },
+      "gated": true,
+      "files": [
+        {
+          "repo": "Lightricks/LTX-2.5",
+          "path": "diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+          "kind": "diffusion_models",
+          "bytes": 21504034224
+        },
+        {
+          "repo": "Lightricks/LTX-2.5",
+          "path": "text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+          "kind": "text_encoders",
+          "bytes": 15372969374
+        },
+        {
+          "repo": "Lightricks/LTX-2.5",
+          "path": "vae/ltx-2.5-video-vae-bf16.safetensors",
+          "kind": "vae",
+          "bytes": 1472223346
+        },
+        {
+          "repo": "Lightricks/LTX-2.5",
+          "path": "vae/ltx-2.5-audio-vae-bf16.safetensors",
+          "kind": "vae",
+          "bytes": 364866540
+        },
+        {
+          "repo": "Lightricks/LTX-2.5",
+          "path": "latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+          "kind": "latent_upscale_models",
+          "bytes": 995778752
+        }
+      ],
+      "bytes": 39709872236
+    },
+    "ltx23": {
+      "title": "LTX 2.3",
+      "license": {
+        "name": "LTX-2 Community License",
+        "url": "https://huggingface.co/Lightricks/LTX-2.3"
+      },
+      "files": [
+        {
+          "repo": "Lightricks/LTX-2.3-fp8",
+          "path": "ltx-2.3-22b-dev-fp8.safetensors",
+          "kind": "checkpoints",
+          "bytes": 29145431166,
+          "sha256": "28606c5b5a06ce56f896d4dfcb20f212739e07a68fbe48e53638188449d26450"
+        },
+        {
+          "repo": "Comfy-Org/ltx-2",
+          "path": "split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors",
+          "kind": "text_encoders",
+          "bytes": 9447702218,
+          "sha256": "aaca463d11e6d8d2a4bdb0d6299214c15ef78a3f73e0ef8113d5a9d0219b3f6d"
+        },
+        {
+          "repo": "Comfy-Org/ltx-2.3",
+          "path": "split_files/loras/ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors",
+          "kind": "loras",
+          "bytes": 2741024390,
+          "sha256": "31e0c0195fb841bf31af78e8b60858f489e87ddcea4a5239abc80943da65e3ac"
+        },
+        {
+          "repo": "Lightricks/LTX-2.3",
+          "path": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+          "kind": "latent_upscale_models",
+          "bytes": 995743560,
+          "sha256": "5f416311fa8172b65af67530758964708d29a317b830d689a51143b7f91913ed"
+        }
+      ],
+      "bytes": 42329901334
+    },
+    "wan": {
+      "title": "WAN 2.2 5B",
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B"
+      },
+      "files": [
+        {
+          "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "path": "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors",
+          "kind": "diffusion_models",
+          "bytes": 9999658848,
+          "sha256": "456f901338bd9eadbded3828b819109a9b68e8a525ca5cf8d0049a69fcfeca1e"
+        },
+        {
+          "repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+          "path": "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+          "kind": "text_encoders",
+          "bytes": 6735906897,
+          "sha256": "c3355d30191f1f066b26d93fba017ae9809dce6c627dda5f6a66eaa651204f68"
+        },
+        {
+          "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "path": "split_files/vae/wan2.2_vae.safetensors",
+          "kind": "vae",
+          "bytes": 1409400960,
+          "sha256": "e40321bd36b9709991dae2530eb4ac303dd168276980d3e9bc4b6e2b75fed156"
+        },
+        {
+          "repo": "Kijai/WanVideo_comfy",
+          "path": "FastWan/Wan2_2_5B_FastWanFullAttn_lora_rank_128_bf16.safetensors",
+          "kind": "loras",
+          "bytes": 660874456,
+          "sha256": "79290493711b022e1c6e655d803715cd8a91a75cdb139856cad46f354e2f681c"
+        }
+      ],
+      "bytes": 18805841161
+    }
+  }
+}

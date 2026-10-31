@@ -1,0 +1,448 @@
+/* The lab: one scene by hand. The studio's header, status strip, tokens and controls come from studio.css; here only
+   what is the lab's own - the bench on the left (prompt, frame, length, LoRA, the shoot button), the monitor on the
+   right (the take being watched and the takes, grouped by prompt).
+   The prompt's parts are marked in the colours of the help's anatomy (help.js): style purple, place blue, camera
+   violet, timeline green, sound yellow, the tail grey - the same words for the same things everywhere. */
+body.lab {
+  --p-style: #a855f7; --p-place: #378ADD; --p-camera: #7F77DD; --p-time: #1D9E75; --p-audio: #eab308; --p-tail: #888780;
+  --mono: "JetBrains Mono", Consolas, "Cascadia Mono", monospace;
+}
+body.lab { overflow: hidden; }
+body.lab #app { display: flex; flex-direction: column; height: 100vh; }
+body.lab .head { flex: none; }
+body.lab .steps .on { cursor: default; }
+body.lab .steps .lab-sub { color: var(--muted); font-size: 13px; padding-left: 0; }
+body.lab .stop { min-height: 28px; color: var(--bad); }
+body.lab .stop:hover:not(:disabled) { background: rgba(239, 68, 68, .12); color: var(--bad); }
+body.lab .problems { flex: none; padding: 8px 28px; background: rgba(239, 68, 68, .1); color: var(--bad); font-size: 13px; border-bottom: 1px solid var(--rule); }
+body.lab .small { font-size: 12px; line-height: 1.5; margin: 0; }
+body.lab .sec-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; }
+
+body.lab .bench-wrap { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: clamp(360px, var(--bench, 468px), calc(100vw - 420px)) minmax(0, 1fr); }
+/* the bench's edge: drag it to make the form wider */
+body.lab .splitter { position: absolute; top: 0; bottom: 0; left: clamp(360px, var(--bench, 468px), calc(100vw - 420px)); width: 10px; margin-left: -5px; z-index: 6; cursor: col-resize; touch-action: none; }
+body.lab .splitter::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; background: transparent; transition: background .15s; }
+body.lab .splitter:hover::after, body.lab .splitter:focus-visible::after, body.lab .splitter:active::after { background: var(--accent); }
+body.lab .splitter:focus-visible { outline: none; }
+/* the prompt: one column on the bench; «Развернуть» lays it over the whole lab, Russian and English side by side */
+body.lab .cols { display: flex; flex-direction: column; gap: 8px; }
+body.lab .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
+body.lab .only-ic { padding: 0 8px; }
+body.lab .sheet-sec.wide { position: absolute; inset: 0; z-index: 15; padding: 14px 24px 18px; background: var(--bg); gap: 12px; }
+body.lab .sheet-sec.wide .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+body.lab .sheet-sec.wide .col .sheet { flex: 1; min-height: 0; display: flex; }
+body.lab .sheet-sec.wide .col.on .sheet { border-color: var(--rule-3); }
+body.lab .sheet-sec.wide .col .sheet textarea { field-sizing: fixed; flex: 1; height: auto; min-height: 0; max-height: none; resize: none; }
+body.lab .sheet-sec.wide .sheet textarea, body.lab .sheet-sec.wide .sheet .hl { font-size: 14.5px; }
+body.lab .sheet-sec.wide .checks { max-height: 17vh; overflow-y: auto; }
+body.lab .sheet-sec.wide .sec-row { flex-wrap: nowrap; }
+body.lab .sheet-sec.wide .sheet-tools { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+body.lab .wide-title { display: flex; align-items: center; gap: 2px; flex: none; white-space: nowrap; font-size: 16px; }
+body.lab .wide-sum { max-width: 24vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--muted); margin: 0 6px 0 10px; }
+body.lab .wide-go { width: auto; flex: none; min-height: 36px; padding: 0 16px; border-radius: 10px; font-size: 14px; }
+body.lab .col-head { display: flex; align-items: baseline; gap: 8px; }
+body.lab .col-head b { font-size: 14px; }
+body.lab .col-head small { font-size: 12.5px; color: var(--muted); }
+body.lab .col-head .stale-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); align-self: center; }
+
+/* ---------- the bench ---------- */
+body.lab .bench { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--rule); }
+body.lab .bench-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 22px 22px; display: flex; flex-direction: column; gap: 22px; scrollbar-color: var(--rule-2) transparent; }
+body.lab .opt { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+body.lab .lbl small { font-variant-numeric: tabular-nums; }
+
+/* the prompt: a sheet of monospace, body.lab as the raw prompts in the studio */
+body.lab .sheet-sec { display: flex; flex-direction: column; gap: 8px; }
+body.lab .sheet { border: 1px solid var(--rule-2); border-radius: 12px; background: var(--deep); }
+body.lab .sheet:focus-within { border-color: var(--accent); }
+body.lab .sheet textarea { display: block; width: 100%; height: 36vh; min-height: 220px; resize: vertical; border: 0; background: transparent; color: var(--text);
+  padding: 14px 16px; font: 13.5px/1.65 var(--mono); outline: none; border-radius: 12px; }
+body.lab .sheet textarea::placeholder { color: var(--dim); font-family: var(--ui); font-size: 14px; }
+/* the markup: the textarea's text is transparent, the same text lies coloured under it; every paragraph is tagged in
+   Russian in the blank line above it (the first one in the extra top padding). Highlights change colour and background
+   only, never a character's width, so the layer and the textarea wrap alike. */
+body.lab .sheet { position: relative; }
+body.lab .sheet textarea, body.lab .sheet .hl { scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--rule-3) transparent; }
+body.lab .sheet textarea { max-height: var(--field-max, 60vh); }
+body.lab .sheet .hl { position: absolute; inset: 0; margin: 0; overflow: hidden; pointer-events: none; padding: 14px 16px; border-radius: 12px;
+  font: 13.5px/1.65 var(--mono); color: var(--text); white-space: pre-wrap; overflow-wrap: break-word; tab-size: 8; }
+body.lab .sheet.markup textarea { position: relative; z-index: 1; color: transparent; caret-color: var(--text); }
+body.lab .sheet.markup textarea, body.lab .sheet.markup .hl { padding-top: 36px; }
+body.lab .sheet.markup textarea::selection { background: rgba(168, 85, 247, .35); color: transparent; }
+body.lab .hl .mk { position: relative; }
+body.lab .hl .mk::before { content: attr(data-tag); position: absolute; left: 0; bottom: 100%; margin-bottom: 3px; white-space: nowrap; padding: 0 8px; border-radius: 8px;
+  font: 500 11px/17px var(--ui); color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+body.lab .hl .lb { color: var(--c); }
+body.lab .hl .ts { color: var(--p-time); }
+body.lab .hl .say { color: #f9a8d4; background: rgba(236, 72, 153, .14); border-radius: 3px; }
+body.lab .hl .pic { color: #93c5fd; background: rgba(55, 138, 221, .2); border-radius: 3px; }
+body.lab .hl .fill { color: var(--accent-hi); background: var(--accent-deep); border-radius: 3px; }
+body.lab .hl .ru { text-decoration: underline wavy var(--bad); text-underline-offset: 4px; text-decoration-skip-ink: none; }
+body.lab .sheet-tools { display: flex; align-items: center; gap: 4px; }
+body.lab .markup-tog { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+body.lab .markup-tog input { accent-color: var(--accent); margin: 0; }
+/* the checks under the prompt: what to look at before shooting, each with its fix */
+body.lab .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+body.lab .checks li { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; min-height: 32px; padding: 2px 4px 2px 10px; border-radius: 8px; cursor: help;
+  background: var(--warn-bg); font-size: 13px; line-height: 1.35; color: var(--soft); }
+body.lab .checks li > .ic { color: var(--warn); flex: none; }
+body.lab .checks .check-text { flex: 1 1 150px; min-width: 0; padding: 5px 0; overflow-wrap: anywhere; }
+body.lab .checks .check-fix { flex: none; }
+body.lab .checks .ghost { min-height: 26px; padding: 0 8px; font-size: 12.5px; color: var(--text); cursor: pointer; }
+body.lab .chip.own { gap: 4px; padding: 0 10px 0 4px; cursor: text; }
+body.lab .chip.own input { width: 62px; border: 0; background: transparent; color: inherit; font: inherit; text-align: right; padding: 0; outline: none; }
+body.lab .chip.own input::placeholder { color: var(--dim); }
+body.lab .chip.own:focus-within { border-color: var(--accent); }
+/* the prompt's language: the Russian tab is translated into the English one, which goes to H3 */
+body.lab .sheet-sec > .sec-row { flex-wrap: wrap; row-gap: 6px; }
+/* «Заготовка ▾»: whole prompts by group */
+body.lab .caret { margin-left: 2px; font-size: 11px; color: var(--muted); }
+body.lab .preset-pop { position: fixed; z-index: 20; width: min(360px, calc(100vw - 32px)); overflow-y: auto; padding: 6px; background: var(--panel); border: 1px solid var(--rule-2);
+  border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+body.lab .preset-group + .preset-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--rule); }
+body.lab .preset-group h3 { margin: 6px 10px 4px; font: 500 12px/1.3 var(--ui); color: var(--muted); }
+body.lab .preset-item { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 7px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; cursor: pointer; }
+body.lab .preset-item:hover, body.lab .preset-item:focus-visible { background: var(--hover); }
+body.lab .preset-name { font-size: 14px; }
+body.lab .preset-name small { margin-left: 8px; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+body.lab .preset-hint { font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+body.lab .preset-hint.warn { color: var(--warn); }
+body.lab .lang-row { display: flex; align-items: center; gap: 2px; }
+/* the first tab is a language pick: the tab's look, a chevron, the native list on click */
+body.lab .tab-pick { position: relative; display: inline-flex; align-items: center; border-radius: 8px; color: var(--muted); }
+body.lab .tab-pick.on { background: var(--accent-bg); color: #fff; }
+body.lab .tab-pick select { appearance: none; -webkit-appearance: none; min-height: 28px; padding: 0 24px 0 12px; border: 0; background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+body.lab .tab-pick select:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+body.lab .tab-pick select option { color: var(--text); background: var(--panel); }
+body.lab .tab-pick::after { content: ""; position: absolute; right: 10px; top: 50%; width: 6px; height: 6px; margin-top: -5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); pointer-events: none; opacity: .8; }
+body.lab .tab-pick:hover { color: var(--text); }
+body.lab .tab-pick.on:hover { color: #fff; }
+body.lab .lang-tabs { display: inline-flex; padding: 2px; border: 1px solid var(--rule-2); border-radius: 10px; background: var(--deep); }
+body.lab .lang-tabs button { position: relative; min-height: 28px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; }
+body.lab .lang-tabs button:hover { color: var(--text); }
+body.lab .lang-tabs button[aria-selected="true"] { background: var(--accent-bg); color: #fff; }
+body.lab .lang-tabs .stale-dot { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+body.lab .tr-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+body.lab .tr-row .btn { min-height: 34px; font-size: 13px; }
+body.lab .tr-row .kv, body.lab .tr-row .error { font-size: 13px; }
+body.lab .tr-done { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--deep); font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+body.lab .tr-done svg { color: var(--ok); flex: none; margin-top: 2px; }
+body.lab .tr-done b { display: block; color: var(--soft); font-weight: 500; }
+
+/* the parts of the prompt: lit when there, body.lab a click adds the missing one where it belongs */
+body.lab .parts { display: flex; flex-wrap: wrap; gap: 4px 2px; align-items: center; }
+body.lab .part { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: 8px; border: 1px dashed var(--rule-3); background: transparent;
+  color: var(--muted); font-size: 13px; cursor: pointer; }
+/* missing: a dashed outline and a plus in the part's colour; there: only a dot in its colour, no frame */
+body.lab .part .ic { color: var(--c); }
+body.lab .part:hover { border-color: var(--c); color: var(--text); }
+body.lab .part.has { border-color: transparent; color: var(--soft); }
+body.lab .part.has:hover { background: var(--hover); border-color: transparent; }
+body.lab .part.has::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
+body.lab .part.has .ic { display: none; }
+body.lab .parts .count { margin-left: auto; color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+body.lab .parts .count.bad { color: var(--bad); }
+
+/* the writer's look at the start frame, on the bench by the prompt it is pasted into */
+body.lab .framebox { display: flex; flex-direction: column; gap: 8px; }
+body.lab .hero { background: var(--deep); border-left: 3px solid var(--ok); border-radius: 0 10px 10px 0; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.45; }
+body.lab .hero .en { color: var(--muted); font: 12.5px/1.55 var(--mono); }
+body.lab .hero .kv { color: var(--muted); font-size: 12px; }
+body.lab .hero .ghost { align-self: flex-start; margin-left: -10px; }
+
+/* LoRA in work: one strip each, body.lab the fader is the main control */
+body.lab .rack-tools { display: flex; gap: 2px; align-items: center; }
+body.lab .rack { display: flex; flex-direction: column; gap: 8px; }
+body.lab .rack:empty { display: none; }
+body.lab .rack-empty { color: var(--faint); font-size: 13px; }
+body.lab .thumb { width: 28px; height: 28px; border-radius: 6px; background: var(--deep) center / cover; flex: none; }
+body.lab .rack-item .note { font-size: 12px; color: var(--warn); }
+body.lab .rack-item .kv { font-size: 12px; color: var(--muted); }
+
+/* the library: a list that drops down from «Добавить» */
+body.lab .lora-pop { position: fixed; z-index: 20; width: min(380px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--rule-2); border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .55); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+body.lab .lora-pop-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px; align-items: center; }
+body.lab .lora-pop-head .field-in { padding: 8px 12px; font-size: 14px; }
+body.lab .lora-list { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
+body.lab .lora-item { display: flex; gap: 10px; align-items: center; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; font-size: 14px; }
+body.lab .lora-item:hover:not(:disabled), body.lab .lora-item:focus-visible { background: var(--hover); }
+body.lab .lora-item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.lab .lora-item .size { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+body.lab .lora-item .kind { font-size: 11px; padding: 1px 6px; border-radius: 5px; border: 1px solid currentColor; }
+body.lab .lora-item .kind.ok { color: var(--ok); } body.lab .lora-item .kind.warn { color: var(--warn); } body.lab .lora-item .kind.blocked { color: var(--bad); }
+body.lab .lora-item:disabled { opacity: .5; cursor: not-allowed; }
+body.lab .lora-empty, body.lab .lora-list .none { color: var(--muted); font-size: 13px; line-height: 1.5; padding: 6px 10px; }
+
+/* parameters: closed, body.lab one line says what is inside */
+
+/* the bar that stays at the bottom of the bench */
+body.lab .bench-foot { flex: none; padding: 14px 22px 14px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 8px; background: var(--panel); }
+/* a LoRA in work: one row - thumbnail, name, strength (slider and number), reset, off */
+body.lab .rack-item { display: flex; flex-direction: column; gap: 2px; padding: 4px 4px 4px 10px; border-radius: 4px 10px 10px 4px; background: var(--field); border: 1px solid var(--rule); border-left: 3px solid var(--accent); }
+body.lab .rack-row { display: grid; grid-template-columns: auto minmax(60px, 1fr) minmax(70px, 1.1fr) 48px 28px 28px; gap: 8px; align-items: center; }
+body.lab .rack-row:not(:has(.thumb)) { grid-template-columns: minmax(60px, 1fr) minmax(70px, 1.1fr) 48px 28px 28px; }
+body.lab .rack-row .name { min-width: 0; font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.lab .rack-row .ghost { min-height: 28px; padding: 0; justify-content: center; color: var(--muted); }
+body.lab .rack-row input[type=number] { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--rule-2); text-align: right; padding: 0 2px 1px; font: 600 15px/1.2 var(--ui); color: var(--text); font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+body.lab .rack-row input[type=number]:focus { outline: none; border-bottom-color: var(--accent); }
+body.lab .rack-row input[type=number]::-webkit-outer-spin-button, body.lab .rack-row input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+body.lab .rack-row input[type=range] { -webkit-appearance: none; appearance: none; background: none; height: 24px; width: 100%; min-width: 0; margin: 0; }
+body.lab .rack-row input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--rule-2); }
+body.lab .rack-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); cursor: grab; }
+body.lab .rack-row input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--rule-2); }
+body.lab .rack-row input[type=range]::-moz-range-thumb { width: 8px; height: 8px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
+body.lab .rack-item .note { font-size: 12px; color: var(--warn); }
+body.lab .rack-item .kv { font-size: 12px; color: var(--muted); }
+
+/* the scene form: the prompt as fields (SceneForm.vue), in the studio's inspector idiom - the lab's and the graph's prompt node */
+:is(body.lab, body.graph) .scene-form { display: flex; flex-direction: column; gap: 14px; }
+:is(body.lab, body.graph) .scene-form .stack { display: flex; flex-direction: column; gap: 6px; }
+:is(body.lab, body.graph) .scene-form .field-in { padding: 8px 12px; font-size: 14px; }
+:is(body.lab, body.graph) .scene-form textarea.field-in { resize: vertical; min-height: 58px; line-height: 1.5; }
+:is(body.lab, body.graph) .scene-form select.field-in { cursor: pointer; }
+:is(body.lab, body.graph) .cam-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+:is(body.lab, body.graph) .beat { display: grid; grid-template-columns: 62px minmax(0, 1fr) 58px 28px; gap: 6px; align-items: center; }
+:is(body.lab, body.graph) .beat-t { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+:is(body.lab, body.graph) .beat.say .field-in:first-of-type { border-left: 3px solid #ec4899; }
+:is(body.lab, body.graph) .beat-s { padding: 8px 6px; text-align: center; -moz-appearance: textfield; }
+:is(body.lab, body.graph) .beat-s::-webkit-outer-spin-button, :is(body.lab, body.graph) .beat-s::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+:is(body.lab, body.graph) .beat .ghost { min-height: 28px; padding: 0; justify-content: center; color: var(--muted); }
+:is(body.lab, body.graph) .add-beat { align-self: flex-start; margin-left: 58px; }
+:is(body.lab, body.graph) .tail-row { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+:is(body.lab, body.graph) .tail-row .check-row { font-size: 13.5px; }
+body.lab .mode-tabs { margin-left: 6px; }
+/* a folding block with its state in the summary: the composed prompt */
+body.lab .params { border-top: 1px solid var(--rule); padding-top: 4px; }
+body.lab .params summary { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; cursor: pointer; list-style: none; }
+body.lab .params summary::-webkit-details-marker { display: none; }
+body.lab .params summary::before { content: "›"; color: var(--muted); font-size: 18px; line-height: 1; width: 10px; flex: none; transition: transform .15s; }
+body.lab .params[open] summary::before { transform: rotate(90deg); }
+body.lab .params summary span { font-weight: 600; font-size: 14px; white-space: nowrap; }
+body.lab .params summary em { font-style: normal; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+body.lab .composed { border-top: 0; padding-top: 0; }
+body.lab .composed .ex-code { margin: 0 0 6px; font-size: 12.5px; white-space: pre-wrap; }
+@media (prefers-reduced-motion: reduce) { body.lab .params summary::before { transition: none; } }
+
+/* the length under the frame: the studio's own .seg with a field for any other length */
+body.lab .seg.five-col { grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.4fr); }
+body.lab .seg .own { display: flex; align-items: center; border-radius: 8px; color: var(--muted); cursor: text; }
+body.lab .seg .own.on { background: var(--grad); color: #fff; }
+body.lab .seg .own input { width: 100%; min-width: 0; border: 0; background: none; color: inherit; font: 500 14px/1.3 var(--ui); text-align: center; padding: 8px 4px; outline: none; -moz-appearance: textfield; }
+body.lab .seg .own input::placeholder { color: var(--dim); }
+body.lab .seg .own.on input::placeholder { color: rgba(255, 255, 255, .7); }
+body.lab .seg .own input::-webkit-outer-spin-button, body.lab .seg .own input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+body.lab .seg .own:focus-within { box-shadow: inset 0 0 0 1px var(--accent); }
+body.lab .go-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
+body.lab .go-row .with-q { display: flex; align-items: center; gap: 2px; }
+/* what it shoots on its line, the time under it (the studio's .p-lbl): a long «Снять сцену из кадра» stays inside a
+   narrow bench - it wraps (below ~430 px) instead of pushing the button out */
+body.lab .go-row .primary { min-width: 0; padding: 6px 14px; }
+body.lab .go-row .primary .p-lbl b { max-width: 100%; text-wrap: balance; }
+body.lab .rack-tools .ghost { white-space: nowrap; }
+
+body.lab .stepper { display: grid; grid-template-columns: 34px 40px 34px; border: 1px solid var(--rule-2); border-radius: 12px; background: var(--field); }
+body.lab .stepper button { display: grid; place-items: center; background: none; border: 0; color: var(--muted); border-radius: 10px; }
+body.lab .stepper button:hover { color: var(--text); background: var(--hover); }
+body.lab .stepper input { border: 0; background: none; text-align: center; padding: 0; font: 600 18px var(--ui); color: var(--text); -moz-appearance: textfield; min-width: 0; }
+body.lab .stepper input:focus { outline: none; }
+body.lab .stepper input::-webkit-outer-spin-button, body.lab .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ---------- the monitor: what the camera will shoot, then what it shot ---------- */
+body.lab .monitor { min-height: 0; overflow-y: auto; padding: 18px 32px 40px; display: flex; flex-direction: column; gap: 26px; scrollbar-color: var(--rule-2) transparent; }
+body.lab .monitor > * { width: min(100%, 1100px); align-self: center; flex: none; }
+/* the rig: the readout, the frame, the timeline; the frame is as big as the window leaves for it in its proportions */
+body.lab .rig { display: flex; flex-direction: column; gap: 10px; --room: max(260px, calc(100vh - 340px)); }
+/* the readout and the timeline as wide as a landscape frame, a tall one stands centred between them */
+body.lab .monitor > .rig { width: min(100%, max(820px, calc(var(--room) * var(--r)))); }
+
+/* the readout: the shooting settings on the frame's top edge, like a viewfinder's */
+body.lab .readout { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+body.lab .model-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px 0 12px; border: 1px solid var(--rule-2); border-radius: 9px; background: var(--field);
+  color: var(--text); font: 600 14px/1 var(--ui); cursor: pointer; white-space: nowrap; }
+body.lab .model-btn:hover { border-color: var(--rule-3); }
+body.lab .model-pop { position: fixed; z-index: 20; width: min(380px, calc(100vw - 32px)); overflow-y: auto; padding: 8px; background: var(--panel); border: 1px solid var(--rule-2);
+  border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+body.lab .aspects { display: inline-flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+body.lab .aspects button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 9px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-size: 13px;
+  font-variant-numeric: tabular-nums; cursor: pointer; }
+body.lab .aspects button:hover { color: var(--text); }
+body.lab .aspects button.on { background: var(--accent-bg); color: #fff; }
+body.lab .aspects .box { display: inline-block; border: 1.5px solid currentColor; border-radius: 2px; }
+body.lab .ql-row { display: inline-flex; align-items: center; gap: 2px; }
+body.lab .readout .seg { padding: 3px; gap: 2px; }
+body.lab .readout .seg button { padding: 5px 12px; font-size: 13px; }
+body.lab .seed-in { display: inline-flex; align-items: center; gap: 8px; cursor: text; }
+body.lab .seed-in input { width: 92px; padding: 2px 2px 3px; border: 0; border-bottom: 1px solid var(--rule-2); background: none; color: var(--text); font: 600 13px/1.2 var(--ui);
+  font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+body.lab .seed-in input::placeholder { color: var(--soft); font-weight: 500; }
+body.lab .seed-in input:focus { outline: none; border-bottom-color: var(--accent); }
+body.lab .seed-in input::-webkit-outer-spin-button, body.lab .seed-in input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+body.lab .frame-chip { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; }
+body.lab .fc-add, body.lab .fc-pic { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; border-radius: 9px; color: var(--soft); font-size: 13px; cursor: pointer; white-space: nowrap; }
+body.lab .fc-add { padding: 0 11px; border: 1px dashed var(--rule-3); }
+body.lab .fc-add:hover { border-color: var(--accent); color: var(--text); }
+body.lab .fc-pic { padding: 3px 11px 3px 3px; border: 1px solid var(--rule-2); background: var(--field); }
+body.lab .fc-pic.on, body.lab .fc-pic:hover { border-color: var(--accent); color: var(--text); }
+body.lab .fc-pic img { width: 38px; height: 24px; object-fit: cover; border-radius: 6px; display: block; }
+body.lab .fc-off { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+body.lab .fc-off:hover { color: var(--text); background: var(--hover); }
+
+/* the frame: the scene's real proportions; corner marks; the start frame lies in it; a picture dropped on it becomes one */
+body.lab .vf { position: relative; align-self: center; aspect-ratio: var(--r); width: min(100%, calc(var(--room) * var(--r))); display: grid; place-items: center; overflow: hidden;
+  border-radius: 10px; background: var(--deep); transition: width .3s ease; }
+/* «playing», not «take»: .take is the takes grid's card (width 100%, a 16:9 cover video) and stretched a tall take past the window */
+body.lab .vf.playing { background: #000; box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .9); }
+body.lab .vf video { display: block; width: 100%; height: 100%; object-fit: contain; }
+body.lab .vf .c { position: absolute; width: 24px; height: 24px; border: 0 solid var(--rule-3); pointer-events: none; }
+body.lab .vf .c.tl { top: 14px; left: 14px; border-width: 2px 0 0 2px; } body.lab .vf .c.tr { top: 14px; right: 14px; border-width: 2px 2px 0 0; }
+body.lab .vf .c.bl { bottom: 14px; left: 14px; border-width: 0 0 2px 2px; } body.lab .vf .c.br { bottom: 14px; right: 14px; border-width: 0 2px 2px 0; }
+body.lab .vf-size { position: absolute; top: 17px; right: 48px; z-index: 1; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; pointer-events: none; }
+body.lab .vf-pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+body.lab .vf-tools { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 8px; }
+body.lab .vf-tools .btn { min-height: 34px; font-size: 13px; white-space: nowrap; background: rgba(15, 15, 20, .8); backdrop-filter: blur(6px); }
+body.lab .vf-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 400px; padding: 0 28px; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.5; cursor: pointer; }
+body.lab .vf-drop .ic { color: var(--faint); margin-bottom: 4px; }
+body.lab .vf-drop b { color: var(--soft); font-size: 15px; font-weight: 600; }
+body.lab .vf-drop .btn { margin-top: 8px; min-height: 34px; font-size: 13px; }
+body.lab .vf-drop:hover b { color: var(--text); }
+body.lab .vf-drop:hover .btn { border-color: var(--rule-3); color: var(--text); }
+body.lab .vf-over { position: absolute; inset: 8px; z-index: 2; display: grid; place-items: center; padding: 0 20px; text-align: center; border: 2px dashed var(--accent); border-radius: 8px;
+  background: rgba(33, 23, 47, .82); color: var(--text); font-weight: 600; pointer-events: none; }
+body.lab .shooting { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
+body.lab .shooting b { color: var(--text); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+body.lab .shooting .bar.big { width: min(60%, 320px); }
+
+/* the timeline: the scene's length as a ruler, the prompt's "[0s-3s]" lines laid on it; the length picked beside it */
+body.lab .tl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; margin-top: 2px; }
+body.lab .tl-beats { position: relative; height: 44px; border-radius: 8px; background: var(--panel); }
+body.lab .tl-beat { position: absolute; top: 0; bottom: 0; display: block; min-width: 0; margin: 0; padding: 5px 10px; border: 0; border-left: 2px solid var(--p-time); border-radius: 0;
+  background: color-mix(in srgb, var(--p-time) 14%, transparent); color: var(--soft); font: 12.5px/1.35 var(--ui); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.lab .tl-beat:first-child { border-radius: 8px 0 0 8px; }
+body.lab .tl-beat small { display: block; color: var(--p-time); font-size: 11px; font-variant-numeric: tabular-nums; }
+body.lab button.tl-beat { cursor: pointer; }
+body.lab button.tl-beat:hover { background: color-mix(in srgb, var(--p-time) 26%, transparent); color: var(--text); }
+body.lab .tl-beat.over { border-left-color: var(--bad); background: repeating-linear-gradient(135deg, rgba(239, 68, 68, .16) 0 6px, rgba(239, 68, 68, .06) 6px 12px); }
+body.lab .tl-beat.over small { color: var(--bad); }
+body.lab .tl-end { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--bad); border-radius: 1px; pointer-events: none; }
+body.lab .tl-none { position: absolute; inset: 0; display: flex; align-items: center; gap: 4px 10px; padding: 0 6px 0 14px; color: var(--faint); font-size: 13px; overflow: hidden; }
+body.lab .tl-none .ghost { flex: none; min-height: 30px; font-size: 13px; white-space: nowrap; }
+body.lab .tl-ticks { position: relative; height: 16px; margin-top: 4px; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+body.lab .tl-ticks span { position: absolute; transform: translateX(-50%); }
+body.lab .tl-ticks span:first-child { transform: none; }
+body.lab .tl-ticks span:last-child { transform: translateX(-100%); }
+body.lab .tl-len { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+body.lab .tl-len .seg { width: 250px; padding: 3px; gap: 2px; }
+body.lab .tl-len .seg button { padding: 7px 4px; font-size: 13px; font-variant-numeric: tabular-nums; }
+body.lab .tl-len .seg .own input { padding: 7px 4px; font-size: 13px; }
+body.lab .tl-frames { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+body.lab .take-info { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+/* the take's prompt as a card: the editor's markup (.hl) read-only, the tags in the blank lines above the paragraphs;
+   folded, it shows the first lines fading into the card */
+body.lab .take-card { border-radius: 12px; background: var(--panel); border: 1px solid var(--rule); overflow: hidden; }
+body.lab .take-card-head { display: flex; align-items: center; gap: 4px; padding: 6px 8px 6px 14px; border-bottom: 1px solid var(--rule); }
+body.lab .take-card-head .lbl { flex: 1; margin: 0; }
+body.lab .take-card-head .ghost { min-height: 28px; font-size: 12.5px; }
+body.lab .take-card-head .ghost.done { color: var(--ok-hi); }
+body.lab .take-prompt { position: relative; margin: 0; padding: 34px 16px 14px; max-height: 9.5em; overflow: hidden; cursor: pointer;
+  font: 12.5px/1.65 var(--mono); color: var(--soft); white-space: pre-wrap; overflow-wrap: break-word; }
+body.lab .take-prompt::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2.4em; background: linear-gradient(transparent, var(--panel)); pointer-events: none; }
+body.lab .take-prompt:hover { color: var(--text); }
+body.lab .take-card.open .take-prompt { max-height: none; cursor: auto; }
+body.lab .take-card.open .take-prompt::after { display: none; }
+/* the fold in the head: a chevron that turns when the prompt is open */
+body.lab .take-prompt-tog { display: inline-flex; align-items: center; gap: 7px; min-height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--accent-hi); font-size: 12.5px; cursor: pointer; }
+body.lab .take-prompt-tog::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform .15s; }
+body.lab .take-prompt-tog.open::before { transform: translateY(2px) rotate(225deg); }
+body.lab .take-prompt-tog:hover { color: var(--text); background: var(--hover); }
+/* the seed copies with a click; the date and the shooting time stay quiet at the end */
+body.lab .chip-copy { display: inline-flex; align-items: center; gap: 5px; min-height: 22px; padding: 0 8px; border: 1px solid var(--rule-2); border-radius: 999px; background: none; color: var(--soft); font: inherit; cursor: pointer; }
+body.lab .chip-copy:hover { border-color: var(--rule-3); color: var(--text); }
+body.lab .chip-copy.done { color: var(--ok-hi); border-color: var(--ok); }
+body.lab .take-when { color: var(--faint); margin-left: auto; }
+body.lab .take-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+body.lab .take-meta b { color: var(--text); font-weight: 500; }
+body.lab .take-acts { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+body.lab .take-acts > div { display: flex; gap: 8px; flex-wrap: wrap; }
+body.lab .take-acts .btn { min-height: 36px; font-size: 13px; }
+/* the main action stands out by its frame; delete is red only in its word */
+body.lab .take-acts .btn.lead { border-color: var(--accent); color: var(--text); }
+body.lab .take-acts .btn.lead:hover { background: var(--accent-deep); }
+body.lab .take-acts .btn.quiet-danger { color: var(--bad); }
+body.lab .take-acts .btn.quiet-danger:hover { border-color: var(--bad); }
+
+/* nothing shot yet: the presets by group, plain rows - the same list as «Заготовка ▾», laid out where there is room */
+body.lab .start-sec h2 { margin: 0; font: 600 16px/1.3 var(--ui); color: var(--text); }
+body.lab .start-sec > p { margin: 4px 0 16px; max-width: min(72ch, 100%); color: var(--muted); line-height: 1.55; }
+body.lab .start { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 18px 24px; }
+body.lab .start-group { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+body.lab .start-group h3 { margin: 0 10px 4px; font: 500 12.5px/1.3 var(--ui); color: var(--muted); }
+body.lab .start-item { display: flex; flex-direction: column; gap: 1px; padding: 7px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; cursor: pointer; min-width: 0; }
+body.lab .start-item:hover, body.lab .start-item:focus-visible { background: var(--hover); }
+body.lab .start-item b { font-size: 14px; font-weight: 500; }
+body.lab .start-item small { font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: normal; }   /* a button's text does not wrap by default: the hint ran into the next column */
+body.lab .start-item small.warn { color: var(--warn); }
+@media (prefers-reduced-motion: reduce) { body.lab .vf { transition: none; } }
+
+/* the takes: grouped by prompt, body.lab newest first; hovering a take plays it without sound */
+body.lab .takes-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--rule); padding-bottom: 8px; }
+body.lab .takes-head h2 { margin: 0; font: 600 18px/1.2 var(--ui); }
+body.lab .takes-head h2 small { margin-left: 6px; font-size: 14px; font-weight: 400; color: var(--muted); }
+body.lab .takes { display: flex; flex-direction: column; gap: 22px; }
+body.lab .takes:empty { display: none; }
+body.lab .take-group { display: flex; flex-direction: column; gap: 10px; }
+body.lab .group-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+body.lab .group-head p { margin: 0; flex: 1; min-width: 0; font: 12.5px/1.4 var(--mono); color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.lab .group-head span { flex: none; font-size: 12px; color: var(--muted); }
+body.lab .group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+body.lab .take { position: relative; display: block; width: 100%; margin: 0; padding: 0; border: 0; background: var(--deep); border-radius: 10px; overflow: hidden; cursor: pointer; text-align: left; color: var(--text);
+  outline: 2px solid transparent; outline-offset: 2px; }
+body.lab .take img, body.lab .take video, body.lab .take .noimg { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--deep); }
+body.lab .take video { position: absolute; inset: 0; height: 100%; }
+body.lab .take-cap { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: flex-end; gap: 6px; padding: 18px 9px 7px;
+  background: linear-gradient(transparent, rgba(10, 10, 14, .85)); font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none; }
+body.lab .take-cap b { font-weight: 600; font-size: 13px; }
+body.lab .take-cap span { color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.lab .take:hover { outline-color: var(--rule-3); }
+body.lab .take.sel { outline-color: var(--accent); }
+body.lab .take.running { cursor: default; border: 1px dashed var(--rule-3); background: transparent; aspect-ratio: 16 / 9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--muted); font-size: 13px; }
+body.lab .take.running b { color: var(--text); font-variant-numeric: tabular-nums; }
+body.lab .take.running .bar.big { width: 70%; }
+body.lab .take.queued { opacity: .6; }
+
+@media (max-width: 1100px) { body.lab .monitor { padding: 20px 20px 32px; } }
+@media (max-width: 900px) {
+  body.lab .splitter { display: none; }
+  body.lab .sheet-sec.wide { position: fixed; z-index: 30; overflow-y: auto; padding: 12px 16px 20px; }
+  body.lab .sheet-sec.wide .cols { flex: none; display: flex; flex-direction: column; gap: 24px; }
+  body.lab .sheet-sec.wide .col .sheet { flex: none; height: 50vh; }
+  body.lab .sheet-sec.wide .sec-row { flex-wrap: wrap; }
+  body.lab .wide-sum { display: none; }
+  body.lab { overflow: visible; }
+  body.lab #app { height: auto; display: block; }
+  body.lab .bench-wrap { display: block; }
+  body.lab .bench { border-right: 0; border-bottom: 1px solid var(--rule); }
+  body.lab .bench-body { overflow: visible; padding: 14px 16px 20px; }
+  body.lab .bench-foot { position: sticky; bottom: 0; z-index: 5; padding: 12px 16px; }
+  body.lab .monitor { overflow: visible; padding: 18px 16px 32px; }
+  body.lab .rig { --room: 62vh; }
+  body.lab .steps .lab-sub { display: none; }
+  body.lab .problems { padding: 8px 16px; }
+  body.lab .sheet textarea { height: 30vh; }
+}
+@media (max-width: 640px) {
+  body.lab .top { gap: 12px; padding: 10px 16px; }
+  body.lab .group-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  body.lab .take-acts .btn { flex: 1 1 auto; }
+  body.lab .tl { grid-template-columns: minmax(0, 1fr); }
+  body.lab .tl-len { align-items: flex-start; }
+  body.lab .frame-chip { margin-left: 0; }
+}
+/* the prompt field grows with its text, from a comfortable start to most of the window, then scrolls */
+@supports (field-sizing: content) {
+  body.lab .sheet textarea { field-sizing: content; height: auto; min-height: 220px; max-height: var(--field-max, 60vh); resize: none; }
+}
+
+/* phase 10: the same scene on every model */
+.compare-all { align-self: center; font-size: 13px; }
