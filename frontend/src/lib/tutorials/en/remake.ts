@@ -7,7 +7,7 @@ export default scenario('remake', 'Reshoot a finished video',
   meta('5–10 minutes · a 5 s clip is redone in 1–1.5 min (RTX 4080) · LTX 2.5 or 2.3 with IC-LoRA, H3 with the Ref2VA LoRA, LTX 2.3 with ID-LoRA for the voice · you need a graph project with a shot scene') +
   steps(
     step('Put the LoRA into its folder',
-      '<p>An IC-LoRA goes into the LoRA folder of its LTX version (LTX 2.3 also has <code>ltx\\ic-loras</code>), a Ref2VA LoRA into the H3 LoRA folder. The folders are in «Models and settings». The node recognizes by itself that the LoRA reads a clip; how to run it comes from its profile.</p>' + go('/models', 'Models and settings'),
+      '<p>An IC-LoRA goes into the LoRA folder of its LTX version (LTX 2.3 also has <code>ltx\\ic-loras</code>), a Ref2VA LoRA into the H3 LoRA folder. The folders are in «Settings». The node recognizes by itself that the LoRA reads a clip; how to run it comes from its profile.</p>' + go('/settings/models', 'Settings'),
       'No profile means default settings; your own go into a &lt;name&gt;.v2v.json file next to the LoRA.'),
     step('Add «Video → video» to a scene',
       '<p>Open the graph from the list on the home screen. Select a shot Scene, click «Add» → «Video → video»: the node appears next to it, and the scene\'s «scene» goes into its «scene» input.</p>',

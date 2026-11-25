@@ -34,6 +34,14 @@ COMFY_DIR = Path(os.environ.get("COMFY_DIR", str(OWN_ENGINE if (OWN_ENGINE / "Co
 COMFY_PYTHON = Path(os.environ.get("COMFY_PYTHON", str(engine_python(COMFY_DIR))))
 COMFY_INPUT = Path(os.environ.get("COMFY_INPUT", str(ROOT / "data" / "comfy" / "input")))
 COMFY_OUTPUT = Path(os.environ.get("COMFY_OUTPUT", str(ROOT / "data" / "comfy" / "output")))
+# Attention for the local ComfyUI worker. "sdpa" (default): ComfyUI's own choice - its comfy.ops wrapper already puts
+# torch's cuDNN SDPA kernel first (no flash kernel on Windows; measured 2026-11-05: cuDNN runs, 8.4 ms vs 15.7 ms for
+# EFFICIENT). "ck": ComfyUI's --use-ck-attention (Comfy Kitchen int8 attention): H3 sampling 7.85 -> 5.97 s/it, but the
+# video drifts from the sdpa one (PSNR ~23 dB, SSIM ~0.81 at the same seed - the same scene, other details), so opt-in.
+COMFY_ATTENTION = os.environ.get("COMFY_ATTENTION", "sdpa").strip().lower()
+if COMFY_ATTENTION not in ("sdpa", "ck"):
+    COMFY_ATTENTION = "sdpa"
+COMFY_ARGS = os.environ.get("COMFY_ARGS", "").split()   # raw extra ComfyUI arguments, for experiments
 # ENGINE=remote: the worker runs on another machine (cloud/worker_server.py on a RunPod pod); the studio sends it the
 # graphs and their input files and takes the results back. Everything else (writer, montage, RTX, RIFE) stays here.
 ENGINE = os.environ.get("ENGINE", "local")
@@ -63,6 +71,10 @@ H3_AUDIO_VAE = os.environ.get("H3_AUDIO_VAE", "minimax_h3_audio_vae_fp32.safeten
 H3_REF_UNET = os.environ.get("H3_REF_UNET", "minimax_h3_ref2va_pruned_int8_convrot.safetensors")
 H3_REF_LORA = os.environ.get("H3_REF_LORA", "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors")
 H3_REF_DIR = Path(os.environ.get("H3_REF_DIR", str(MODELS)))
+# Ref2VA at the final size (>= ~1 MP): lightx2v's 8-step LoRA trained at 768p (shift 6/3) instead of the 544p 4-step one.
+# GPU A/B 2026-11-10: SFace +0.06..0.11 on close-ups. Used only when the file is there (graphs.ref_recipe).
+H3_REF_LORA_768 = os.environ.get("H3_REF_LORA_768", "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors")
+REF_STEPS_768 = 8
 
 # Phase 10: the other models, on the same worker (names only; the worker finds them in the model roots' sub-folders,
 # checkpoints/ and latent_upscale_models/ too). WAN 2.2 5B - picture only; LTX 2.5 - picture and its own sound;
@@ -87,6 +99,9 @@ LORA_DIRS = _paths("LORA_DIRS", str(MODELS / "loras" / "h3"))
 LTX23_LORA_DIRS = _paths("LTX23_LORA_DIRS", str(MODELS / "loras" / "ltx23"))
 LTX25_LORA_DIRS = _paths("LTX25_LORA_DIRS", str(MODELS / "loras" / "ltx25"))
 WAN_LORA_DIRS = _paths("WAN_LORA_DIRS", str(MODELS / "loras" / "wan5b"))   # WAN 2.2 5B's (FastWan has its own slot)
+# A run of several H3 scenes encodes their prompts in one pass of the text encoder before the first one (jobs.encode_ahead):
+# otherwise every new prompt loads the 32B encoder (~13 s) and the model again (~5 s). H3_TE_AHEAD=0 turns that off.
+H3_TE_AHEAD = os.environ.get("H3_TE_AHEAD", "1") != "0"
 WORKER_LOG = Path(os.environ.get("WORKER_LOG", str(ROOT / "data" / "h3worker.log")))
 FFMPEG = os.environ.get("FFMPEG", "ffmpeg")   # on PATH by default (winget's Gyan.FFmpeg)
 FFPROBE = os.environ.get("FFPROBE", "ffprobe")

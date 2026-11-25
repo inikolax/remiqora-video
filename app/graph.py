@@ -40,6 +40,284 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 # ---------------------------------------------------------------------------------------------------------------
 # node types: ports (name -> port type; an input is single or multi), who does the work (the header's colour)
 # ---------------------------------------------------------------------------------------------------------------
+# a mini-series (2026-11-09): «Сериал» holds the bible, «Сценарий» a screenplay in the «ИМЯ (как): слова» format
+# (app/screenplay.py); «Развернуть в шоты» makes a «Промт» + «Сцена» per line or action, one speaker per shot
+# ---------------------------------------------------------------------------------------------------------------
+SERIES_FIELDS = (("title", "Название"), ("look_text", "Вид"), ("world", "Мир"), ("characters", "Персонажи"), ("recap", "Ранее"))
+
+
+def series_text(d: dict) -> str:
+    """The bible as the writer reads it: «Название: …» per filled field (the look's name for the picked look)."""
+    rows = []
+    for k, label in SERIES_FIELDS:
+        v = (d.get("style") if k == "look_text" else d.get(k)) or ""
+        if k == "look_text" and d.get("look") in looks.LOOKS and d["look"] != looks.AUTO:   # the picked look's name, then the user's words
+            v = looks.LOOKS[d["look"]]["ru"] + ("; " + str(v).strip() if str(v).strip() else "")
+        if str(v).strip():
+            rows.append(f"{label}: {str(v).strip()}")
+    return "\n".join(rows)
+
+
+def hero_name(h: dict, k: int) -> str:
+    """How the screenplay names a hero: the node's title, «Герой N» without one."""
+    return (h["data"].get("title") or "").strip() or i18n.L(f"Герой {k + 1}", f"Hero {k + 1}")
+
+
+def screenplay_inputs(c: Ctx, n: dict) -> tuple[str, list[dict], Optional[dict], str]:
+    """(the idea, the hero nodes in the order of the canvas = the characters, the «Сериал» node wired to `series` or
+    None, the bible's text: that node's, a text node's or the node's own `series`)."""
+    idea = next((c.by[s]["data"].get("text", "") for s, _ in c.inputs(n["id"], "idea") if s in c.by), "") or n["data"].get("idea", "")
+    heroes = [c.by[s] for s, _ in c.inputs(n["id"], "cast") if s in c.by and c.by[s]["type"] == "hero"]
+    heroes.sort(key=lambda h: (h["position"]["y"], h["position"]["x"]))
+    src = next((c.by[s] for s, _ in c.inputs(n["id"], "series") if s in c.by), None)
+    sv = src if src and src["type"] == "series" else None
+    bible = series_text(sv["data"]) if sv else (src["data"].get("text", "") if src else "") or n["data"].get("series", "")
+    return (idea or "").strip(), heroes, sv, (bible or "").strip()
+
+
+def _hero_look(h: dict) -> str:
+    d = h["data"]
+    return ", ".join(x for x in ((d.get("en") or "").strip(), (f"wearing {d['outfit_en']}" if d.get("outfit_en") else "")) if x)
+
+
+async def write_screenplay(client, c: Ctx, n: dict, action: str = "write") -> dict:
+    """«Написать сценарий» (the idea, the heroes' looks and the bible -> the screenplay's text, with the writer's English
+    for the places and actions in `tr`) or «Добавить в "Ранее"» (1-2 sentences of this episode into the «Сериал» node).
+    -> {node id: the data to put}. A ValueError says what is missing."""
+    from . import screenplay
+    from .llm import writer
+    d = n["data"]
+    idea, heroes, sv, bible = screenplay_inputs(c, n)
+    seed = int(d.get("seed") or random.randrange(100000))
+    if action == "recap":
+        text = (d.get("text") or "").strip()
+        if not text:
+            raise ValueError(i18n.L("нет сценария: сначала «Написать сценарий»", "no screenplay: «Write the screenplay» first"))
+        if not sv:
+            raise ValueError(i18n.L("нет «Сериала»: подключите узел «Сериал» ко входу «сериал»", "no «Series»: connect a «Series» node to the «series» input"))
+        sig = _sha(text)
+        if d.get("recap_of") == sig:
+            raise ValueError(i18n.L("Этот сценарий уже добавлен в «Ранее»", "This screenplay is already in «Previously»"))
+        recap = await writer.recap_for(client, text, bible, seed)
+        if not recap:
+            raise ValueError(i18n.L("модель не написала краткое содержание", "the model wrote no summary"))
+        old = (sv["data"].get("recap") or "").strip()
+        sv["data"]["recap"] = (old + "\n" if old else "") + recap
+        return {n["id"]: {"recap_of": sig}, sv["id"]: {"recap": sv["data"]["recap"]}}
+    if not idea:
+        raise ValueError(i18n.L("нет идеи: подключите узел «Идея»", "no idea: connect an «Idea» node"))
+    if not heroes:
+        raise ValueError(i18n.L("нет героев: подключите узлы «Герой» ко входу «герои»", "no heroes: connect «Hero» nodes to the «cast» input"))
+    cast = [{"name": hero_name(h, k), "gender": h["data"].get("gender") or "", "look": _hero_look(h)} for k, h in enumerate(heroes)]
+    data = await writer.screenplay_for(client, idea, cast, bible, int(d.get("seconds") or 30), seed)
+    text, tr = screenplay.render(data, [x["name"] for x in cast])
+    if not text:
+        raise ValueError(i18n.L("модель не написала сценарий", "the model wrote no screenplay"))
+    return {n["id"]: {"text": text, "tr": tr, "name": str(data.get("title") or "").strip(), "recap_of": None}}
+
+
+def _screenplay_shots(c: Ctx, w: dict) -> tuple[list[dict], list[dict], dict, list[dict]]:
+    """(the cast [{name, gender}], the shots, the parse, the heroes) of a «Сценарий» node."""
+    from . import screenplay
+    _, heroes, _, _ = screenplay_inputs(c, w)
+    cast = [{"name": hero_name(h, k), "gender": h["data"].get("gender") or "", "kind": hero_kind(h["data"])}
+            for k, h in enumerate(heroes)]
+    parsed = screenplay.parse(w["data"].get("text") or "", cast)
+    return cast, screenplay.shots(parsed, cast), parsed, heroes
+
+
+def screenplay_style(c: Ctx, w: dict) -> tuple[Optional[str], str]:
+    """(the series' look id or None, the free `style` words) of the «Сериал» node wired to a «Сценарий»."""
+    _, _, sv, _ = screenplay_inputs(c, w)
+    d = (sv or {}).get("data") or {}
+    look = d.get("look") if d.get("look") in looks.LOOKS and d.get("look") != looks.AUTO else None
+    return look, str(d.get("style") or "").strip()
+
+
+def screenplay_missing(pid: str, wid: str) -> list[tuple[str, str]]:
+    """[(kind, Russian text)] the screenplay's English prompts still lack: places, actions, free remarks and the series'
+    free style that are in Cyrillic and have no translation in the node's `tr`."""
+    from . import screenplay
+    g = load(pid)
+    w = node(g, wid)
+    if not w or w["type"] != "screenplay":
+        return []
+    c = Ctx(projects.load(pid), g)
+    _, shots, _, _ = _screenplay_shots(c, w)
+    free = screenplay_style(c, w)[1]
+    tr = w["data"].get("tr") if isinstance(w["data"].get("tr"), dict) else {}
+    kinds = {}
+    for sh in shots:
+        for t in screenplay.texts_for_prompt(sh):
+            kinds.setdefault(t, "place" if t == sh["place"] else "action" if sh["kind"] == "action" else "manner")
+    if free:
+        kinds.setdefault(free, "style")
+    return [(kinds.get(t, "action"), t) for t in screenplay.missing_tr(shots, tr, (free,) if free else ())]
+
+
+async def translate_screenplay(client, pid: str, wid: str, seed: int = 1) -> dict:
+    """The missing English of a screenplay (screenplay_missing) by the studio's writer, cached per text in the node's
+    `tr` (an edited line is translated again, the others stay). -> {node id: {"tr": the whole table}}; {} when nothing
+    was missing."""
+    from .llm import writer
+    todo = screenplay_missing(pid, wid)
+    if not todo:
+        return {}
+    got = await writer.translate_screenplay(client, todo, seed)
+    tr = dict(node(load(pid), wid)["data"].get("tr") or {})
+    tr.update(got)
+    return {wid: {"tr": tr}}
+
+
+def screenplay_edited(pid: str, wid: str) -> list[str]:
+    """The names of the shots' nodes the user changed since «Развернуть в шоты» (what expanding again would ask about)."""
+    g = load(pid)
+    return [nn["data"].get("title") or type_title(nn["type"]) for nn in g["nodes"]
+            if nn["data"].get("from") == wid and not nn["data"].get("detached") and nn["data"].get("made") and _made(nn) != nn["data"]["made"]]
+
+
+def expand_screenplay(pid: str, wid: str, edited: str = "ask") -> dict:
+    """«Развернуть в шоты»: the screenplay -> a «Промт» (its one line in `lines`, the prompt in H3's form) and a «Сцена»
+    per line or action - ONE speaker per shot, the camera on the speaker, the listener over the shoulder, the length
+    from the words; each scene's «лица» wired from the heroes in the shot (the speaker's picture first), so Ref2VA
+    gets them as <Picture N>. All in a «Монтаж» in order and an «Выход». Again: the same nodes get the new texts (their
+    seeds stay), extra ones go away. What the user did to the shots since is theirs: wires they added into a scene's
+    prompt / start / faces stay (only the writer's own wires are made again); a prompt or scene they changed (`made`):
+    `edited` "ask" - Edited (the page asks), "keep" - left as it is, "replace" - made again. -> the graph, `kept`."""
+    from . import screenplay
+    bad: list[int] = []   # the shots whose English is missing (their prompts say «проверь перевод»)
+    kept: list[str] = []
+
+    def go(g: dict) -> None:
+        w = node(g, wid)
+        if not w or w["type"] != "screenplay" or not (w["data"].get("text") or "").strip():
+            raise ValueError(i18n.L("В сценарии нет текста: напишите его или нажмите «Написать сценарий»",
+                                    "The screenplay has no text: write it or press «Write the screenplay»"))
+        c = Ctx(projects.load(pid), g)
+        cast, shots, parsed, heroes = _screenplay_shots(c, w)
+        if not shots:
+            raise ValueError(i18n.L("В сценарии нет ни реплик, ни действий", "The screenplay has no lines and no actions"))
+        look, free = screenplay_style(c, w)
+        looks_en = {i: {"en": screenplay.unstyle((h["data"].get("en") or "").strip(), look or ""), "outfit_en": screenplay.unstyle(h["data"].get("outfit_en") or "", look or "")}
+                    for i, h in enumerate(heroes)}
+        # a hero has a picture when the graph would really feed one (`heroes` are resolved: an actor of the library gives
+        # its face panel or none) - a bare `actor` or a path to a missing file is no picture
+        photos = [i for i, h in enumerate(heroes) if h["data"].get("photo") and (c.folder / h["data"]["photo"]).exists()]
+        tr = w["data"].get("tr") if isinstance(w["data"].get("tr"), dict) else {}
+        style = screenplay.style_line(look, free, tr)   # the series' look first in every prompt
+        x0, y0 = w["position"]["x"] + 380, w["position"]["y"]
+        detach_copies(g, wid, lambda nn: (nn["data"].get("scene"), nn["data"].get("hero"), nn["type"]))
+        mine = {(nn["data"].get("from"), nn["data"].get("scene"), nn["type"]): nn for nn in g["nodes"] if nn["data"].get("from") == wid and not nn["data"].get("detached")}
+        changed = [nn for nn in mine.values() if nn["data"].get("made") and _made(nn) != nn["data"]["made"]]
+        if changed and edited == "ask":
+            raise Edited([nn["data"].get("title") or type_title(nn["type"]) for nn in changed])
+        hold = {nn["id"] for nn in changed} if edited == "keep" else set()
+        kept.extend(nn["data"].get("title") or type_title(nn["type"]) for nn in changed if nn["id"] in hold)
+        cast_ids = {h["id"] for h in heroes}
+        keep, scene_ids, row, col, last = set(), [], 0, 0, None
+        for sh in shots:
+            if last is not None and sh["scene"] != last:
+                row, col = row + 1, 0
+            elif col == EXPAND_COLS:
+                row, col = row + 1, 0
+            last = sh["scene"]
+            x, y = x0 + col * 640, y0 + row * 300
+            col += 1
+            k = sh["i"]
+            text, lines = screenplay.prompt_of(sh, cast, looks_en, photos, tr, style)
+            check = bool(screenplay.missing_tr([sh], tr))   # no English for the place or the action: the prompt is marked, never silent
+            name = cast[sh["speaker"]]["name"] if sh["speaker"] is not None else sh["who"]
+            ru = (f"{name}: {sh['text']}" if sh["kind"] == "line" else f"— {sh['text']}")
+            title = i18n.L(f"Шот {k + 1}", f"Shot {k + 1}") + (f" · {name}" if sh["kind"] == "line" and name else "")
+            if check:
+                bad.append(k + 1)
+                title += i18n.L(" · проверь перевод", " · check the translation")
+            pn = mine.get((wid, k, "prompt"))
+            if not pn:
+                pn = {"id": uuid.uuid4().hex[:8], "type": "prompt", "position": {"x": x, "y": y}, "data": {"from": wid, "scene": k}}
+                g["nodes"].append(pn)
+            if pn["id"] not in hold:
+                pn["data"].update(text=text, lines=lines, title=title, ru=ru)
+                if check:
+                    pn["data"]["check"] = "translate"
+                else:
+                    pn["data"].pop("check", None)
+                pn["data"]["made"] = _made(pn)
+            sn = mine.get((wid, k, "scene"))
+            if not sn:
+                sn = {"id": uuid.uuid4().hex[:8], "type": "scene", "position": {"x": x + 300, "y": y},
+                      "data": {"from": wid, "scene": k, "takes": [random.randrange(1, 2**31)], "take": 0}}
+                g["nodes"].append(sn)
+            if sn["id"] not in hold:
+                sn["data"].update(title=title, seconds=sh["seconds"])
+                if look:
+                    sn["data"]["look"] = look
+                else:
+                    sn["data"].pop("look", None)
+                sn["data"]["made"] = _made(sn)
+            keep |= {pn["id"], sn["id"]}
+            scene_ids.append(sn["id"])
+            # the writer's own wires into the scene are made again; the user's stay (a start «Картинка», a face of theirs).
+            # The scene remembers the ids of its own (`wired`); one made before that is told by its ends.
+            wired = set(sn["data"].get("wired") or [])
+            legacy = "wired" not in sn["data"]
+            into = [e for e in g["edges"] if e["target"] == sn["id"] and e["targetHandle"] in ("prompt", "start", "faces")]
+            mine_e = [e for e in into if e["id"] in wired or (legacy and (
+                (e["targetHandle"] == "prompt" and (node(g, e["source"]) or {"data": {}})["data"].get("from") == wid
+                 and not (node(g, e["source"]) or {"data": {}})["data"].get("detached"))
+                or (e["targetHandle"] == "faces" and e["source"] in cast_ids)))]
+            theirs = [e for e in into if e not in mine_e]
+            g["edges"] = [e for e in g["edges"] if e not in mine_e and not (e in theirs and e["targetHandle"] == "faces")]
+            new_e: list[dict] = []
+            if not any(e["targetHandle"] == "prompt" for e in theirs):   # a prompt the user wired themselves stays the scene's
+                new_e.append({"id": uuid.uuid4().hex[:8], "source": pn["id"], "sourceHandle": "text", "target": sn["id"], "targetHandle": "prompt"})
+            for i in sh["faces"]:   # the speaker first: <Picture 1> is the one who talks
+                if i in photos:
+                    new_e.append({"id": uuid.uuid4().hex[:8], "source": heroes[i]["id"], "sourceHandle": "image", "target": sn["id"], "targetHandle": "faces"})
+            g["edges"].extend(new_e)
+            g["edges"].extend(e for e in theirs if e["targetHandle"] == "faces")   # the user's faces come after the writer's
+            sn["data"]["wired"] = [e["id"] for e in new_e]
+        gone = {nn["id"] for nn in g["nodes"] if nn["data"].get("from") == wid and not nn["data"].get("detached") and nn["id"] not in keep and nn["id"] not in hold and nn["type"] in ("prompt", "scene")}
+        g["nodes"] = [nn for nn in g["nodes"] if nn["id"] not in gone]
+        g["edges"] = [e for e in g["edges"] if e["source"] not in gone and e["target"] not in gone]
+        mn = mine.get((wid, None, "montage"))
+        if not mn:
+            top = x0 + EXPAND_COLS * 640
+            mn = {"id": uuid.uuid4().hex[:8], "type": "montage", "position": {"x": top, "y": y0},
+                  "data": {"from": wid, "title": i18n.L("Серия", "Episode")}}
+            g["nodes"].append(mn)
+            on = {"id": uuid.uuid4().hex[:8], "type": "output", "position": {"x": top + 320, "y": y0},
+                  "data": {"from": wid, "output": {"size": "1080p", "hdr": False, "fps48": False}}}
+            g["nodes"].append(on)
+            g["edges"].append({"id": uuid.uuid4().hex[:8], "source": mn["id"], "sourceHandle": "video", "target": on["id"], "targetHandle": "video"})
+        g["edges"] = [e for e in g["edges"] if not (e["target"] == mn["id"] and e["targetHandle"] == "clips")]
+        for sid in scene_ids:
+            g["edges"].append({"id": uuid.uuid4().hex[:8], "source": sid, "sourceHandle": "clip", "target": mn["id"], "targetHandle": "clips"})
+        mn["data"]["order"] = scene_ids
+    out = update(pid, go)
+    return {**out, "untranslated": bad, "kept": kept}
+
+
+def screenplay_srt(pid: str, wid: str, names: bool = False) -> str:
+    """«Экспорт .srt»: the lines' subtitles, timed by the shots in order - the lengths of the expanded scenes when the
+    screenplay is expanded (the user may have changed them), else the lengths the words give."""
+    from . import screenplay
+    g = load(pid)
+    w = node(g, wid)
+    if not w or w["type"] != "screenplay":
+        raise ValueError(i18n.L("Это не «Сценарий»", "This is not a «Screenplay»"))
+    c = Ctx(projects.load(pid), g)
+    _, shots, _, _ = _screenplay_shots(c, w)
+    if not any(s["kind"] == "line" for s in shots):
+        raise ValueError(i18n.L("В сценарии нет реплик", "The screenplay has no lines"))
+    made = {nn["data"].get("scene"): nn for nn in g["nodes"] if nn["type"] == "scene" and nn["data"].get("from") == wid and not nn["data"].get("detached")}
+    if len(made) == len(shots) and all(s["i"] in made for s in shots):
+        for s in shots:
+            s["seconds"] = int(seconds_of(made[s["i"]]))
+    return screenplay.srt(shots, names)
+
+
+# ---------------------------------------------------------------------------------------------------------------
 TYPES: dict[str, dict] = {
     "idea":    {"title": "Идея", "who": "user", "in": {}, "out": {"text": "text"}},
     "hero":    {"title": "Герой", "who": "writer", "in": {}, "out": {"look": "look", "image": "image"}},
@@ -48,12 +326,19 @@ TYPES: dict[str, dict] = {
     "song":    {"title": "Песня", "who": "user", "in": {}, "out": {"song": "song", "audio": "audio"}},
     "clip_writer": {"title": "Сценарист клипа", "who": "writer", "in": {"song": ("song", False), "idea": ("text", False),
                                                                       "cast": ("look", False)}, "out": {}},
+    # «Бит-клип» (2026-11-06): the shot pool of a beat clip (graph_beat.py)
+    "pool_writer": {"title": "Сценарист пула", "who": "writer", "in": {"song": ("song", False), "idea": ("text", False),
+                                                                    "cast": ("look", False)}, "out": {}},
+    # a mini-series (2026-11-09): the series bible, and a screenplay in the «ИМЯ (как): слова» format (app/screenplay.py)
+    "series":  {"title": "Сериал", "who": "user", "in": {}, "out": {"text": "text"}},
+    "screenplay": {"title": "Сценарий", "who": "writer", "in": {"cast": ("look", True), "idea": ("text", False),
+                                                                "series": ("text", False)}, "out": {}},
     "prompt":  {"title": "Промт", "who": "user", "in": {}, "out": {"text": "text"}},
     "photo":   {"title": "Фото", "who": "user", "in": {}, "out": {"image": "image"}},
     "picture": {"title": "Картинка", "who": "krea", "in": {"text": ("text", False), "ref": ("image", True)}, "out": {"image": "image"}},
     "scene":   {"title": "Сцена", "who": "h3", "in": {"prompt": ("text", False), "start": ("image", False),
                                                      "end": ("image", False), "faces": ("image", True), "lora": ("lora", True),
-                                                     "clip": ("clip", False), "voice": ("audio", False)},
+                                                     "clip": ("clip", False), "voice": ("audio", False), "sound": ("audio", False)},
                 "out": {"frame": "image", "clip": "clip"}},
     "v2v":     {"title": "Видео → видео", "who": "v2v", "in": {"clip": ("clip", False), "prompt": ("text", False),
                                                             "image": ("image", True), "lora": ("lora", True)},
@@ -65,6 +350,9 @@ TYPES: dict[str, dict] = {
     "join":    {"title": "Склейка", "who": "ffmpeg", "in": {"clips": ("clip", True)}, "out": {"video": "video"}},
     "montage": {"title": "Монтаж", "who": "ffmpeg", "in": {"clips": ("clip", True), "track": ("audio", False), "face": ("image", False)},
                 "out": {"video": "video"}},
+    # «Бит-монтаж» (2026-11-06): a pool of short shots cut on the beat of a song's drop (app/beatedit.py, its own process)
+    "beat_montage": {"title": "Бит-монтаж", "who": "ffmpeg", "in": {"clips": ("clip", True), "track": ("song", False), "title": ("text", False)},
+                     "out": {"video": "video"}},
     "track":   {"title": "Трек", "who": "user", "in": {}, "out": {"audio": "audio"}},
     "music":   {"title": "Музыка", "who": "ffmpeg", "in": {"video": ("video", False), "audio": ("audio", False)}, "out": {"video": "video"}},
     "output":  {"title": "Выход", "who": "ffmpeg", "in": {"video": ("video", False)}, "out": {}},
@@ -75,15 +363,15 @@ TYPES: dict[str, dict] = {
 # a FLUX.2 «Картинка» with reference pictures and no prompt
 FLUX_NO_TEXT = ("The person in the first image: exactly the same face, hair and clothes. A new photograph of them, a different camera "
                 "position and framing than the reference image; photorealistic, natural light.")
-MAKES = ("picture", "scene", "v2v", "facefix", "sound", "frame", "join", "montage", "music", "output")
-LLM_TYPES = ("writer", "hero", "clip_writer")
+MAKES = ("picture", "scene", "v2v", "facefix", "sound", "frame", "join", "montage", "beat_montage", "music", "output")
+LLM_TYPES = ("writer", "hero", "clip_writer", "screenplay", "pool_writer")
 LLM_BUTTONS = LLM_TYPES + ("prompt",)   # «Придумать реплики» of a prompt is a button too, never stale
 
 
 # the node types' names in English (TYPES keeps the Russian ones)
-_TITLES_EN = {"idea": "Idea", "hero": "Hero", "writer": "Writer", "song": "Song", "clip_writer": "Clip writer", "prompt": "Prompt", "photo": "Photo", "picture": "Picture",
+_TITLES_EN = {"idea": "Idea", "hero": "Hero", "writer": "Writer", "song": "Song", "clip_writer": "Clip writer", "series": "Series", "screenplay": "Screenplay", "pool_writer": "Pool writer", "prompt": "Prompt", "photo": "Photo", "picture": "Picture",
               "scene": "Scene", "v2v": "Video → video", "facefix": "Faces", "frame": "Frame", "sound": "Scene sound", "join": "Join",
-              "montage": "Montage", "track": "Track", "music": "Music", "output": "Output", "note": "Note", "group": "Group"}
+              "montage": "Montage", "beat_montage": "Beat montage", "track": "Track", "music": "Music", "output": "Output", "note": "Note", "group": "Group"}
 
 
 def type_title(t: str) -> str:
@@ -170,8 +458,26 @@ def save(pid: str, g: dict, rev: Optional[int]) -> dict:
     if rev is not None and rev != cur.get("rev", 0):
         raise Conflict()
     g = clean(g)
+    drop_stale_hints(cur, g)
     g["rev"] = cur.get("rev", 0) + 1
     return _write(pid, g)
+
+
+def drop_stale_hints(old: dict, new: dict) -> None:
+    """A picture's `retry_hint` (the beat clip's redraw hint) belongs to the prompt, look and scene role it was drawn for: when
+    the user edits one of them, the hint goes, or it would ride on the picture's text forever."""
+    before = {n["id"]: n["data"] for n in old.get("nodes") or []}
+    after = {n["id"]: n for n in new.get("nodes") or []}
+    for nid, n in after.items():
+        if n["type"] != "picture" or not n["data"].get("retry_hint") or nid not in before:
+            continue
+        was = before[nid]
+        changed = any((was.get(k) or "") != (n["data"].get(k) or "") for k in ("prompt", "look"))
+        for e in new.get("edges") or []:   # the role lives on the scene the picture starts
+            if e["source"] == nid and (t := after.get(e["target"])) and t["type"] in ("scene", "ref_scene", "v2v") and e["target"] in before:
+                changed = changed or (before[e["target"]].get("role") or "") != (t["data"].get("role") or "")
+        if changed:
+            n["data"].pop("retry_hint", None)
 
 
 def update(pid: str, fn) -> dict:
@@ -185,6 +491,24 @@ def update(pid: str, fn) -> dict:
 
 def node(g: dict, nid: str) -> Optional[dict]:
     return next((n for n in g["nodes"] if n["id"] == nid), None)
+
+
+def detach_copies(g: dict, wid: str, key) -> None:
+    """A writer's nodes are found by `from` + a key (shot / scene / place, type). A Ctrl+C/V or a branch copy used to keep `from`
+    and the key: two nodes then answer to one key and «Развернуть» deleted the user's original. The first one in the list is the
+    writer's, the others are copies: `detached` (they keep `from` - the look logic reads it - but lose shot/made), theirs from now on."""
+    seen: set = set()
+    for nn in g["nodes"]:
+        d = nn["data"]
+        if d.get("from") != wid or d.get("detached") or nn["type"] not in ("picture", "prompt", "scene"):
+            continue
+        k = key(nn)
+        if k in seen:
+            d["detached"] = True
+            for f in ("shot", "made"):
+                d.pop(f, None)
+        else:
+            seen.add(k)
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -215,9 +539,12 @@ class Art:
     ref: Optional[dict] = None       # a scene with a reference LoRA: how it is made (_evaluate_ref_scene)
     voice: Optional[dict] = None     # a voice scene, shot: how alike its voice is to the sample (voice.py)
     checks: Optional[list] = None    # a scene, shot: what the clip's checks found (checks.py)
+    lips: Optional[dict] = None      # a scene drawn under a given sound, shot: the lips' motion in the voiced / silent frames (checks.audio_lips)
     note: Optional[dict] = None      # «Лица», made: what it found and fixed (facefix.py)
     piece: Optional[list] = None     # «Песня»: [from, to] of the song the clip takes (song time)
     song: Optional[str] = None       # «Песня»: its id in the song library (song.py)
+    beat: Optional[dict] = None      # «Бит-монтаж»: the beat renderer's cfg without `out` (_evaluate_beat)
+    extra: dict = field(default_factory=dict)   # «Выход»: the phone copy and the cover (_output_extras)
 
     def public(self, folder: Path) -> dict:
         rel = lambda p: rel_path(folder, p)  # noqa: E731
@@ -227,7 +554,11 @@ class Art:
                 **({"alpha": rel(self.alpha)} if self.alpha else {}), **({"warn": self.warn} if self.warn else {}),
                 **({"model": self.model, "ref_mode": self.ref["mode"]} if self.ref else {}),
                 **({"voice": self.voice} if self.voice else {}), **({"checks": self.checks} if self.checks else {}),
-                **({"note": self.note} if self.note else {}), **({"piece": self.piece} if self.piece else {})}
+                **({"lips": self.lips} if self.lips else {}),
+                **({"note": self.note} if self.note else {}), **({"piece": self.piece} if self.piece else {}),
+                **({"phone": rel(self.extra.get("phone")) if self.extra.get("phone") and self.extra["phone"].exists() else None,
+                    "cover": rel(self.extra.get("cover")) if self.extra.get("cover") and self.extra["cover"].exists() else None,
+                    "cover_at": self.extra.get("cover_at")} if self.extra else {})}
 
 
 def rel_path(folder: Path, p: Optional[Path]) -> Optional[str]:
@@ -238,7 +569,17 @@ def rel_path(folder: Path, p: Optional[Path]) -> Optional[str]:
     try:
         return p.relative_to(folder).as_posix()
     except ValueError:
+        pass
+    try:
         return "@" + p.relative_to(projects.ROOT).as_posix()
+    except ValueError:
+        pass
+    # an actor's picture (data/actors/<id>/face.png, or data/series/<sid>/actors/<id>/…): the actors API serves it
+    if p.parent.parent.name == "actors" and p.stem in ("face", "turn", "photo", "ref"):
+        series = p.parent.parent.parent
+        q = f"?series={series.name}" if series.parent.name == "series" else ""
+        return f"/api/actors/{p.parent.name}/image/{p.stem}{q}"
+    return None
 
 
 class Ctx:
@@ -262,6 +603,10 @@ class Ctx:
         self.pw, self.ph = render.size({**self.settings, "quality": "final"})
         self.failed = failed or {}
         self.by = {n["id"]: n for n in g["nodes"]}
+        for nid, n in list(self.by.items()):   # a hero from the actor library: the actor's look and face panel (a node without `actor` is as it was)
+            if n["type"] == "hero" and isinstance(n["data"].get("actor"), str) and n["data"]["actor"]:   # a non-string actor is ignored
+                from . import actors
+                self.by[nid] = {**n, "data": actors.hero_data(n["data"], actors.library_for(proj, n["data"]["actor"]))}
         self.ins: dict[str, dict[str, list[tuple[str, str]]]] = {n["id"]: {} for n in g["nodes"]}
         for e in g["edges"]:
             if e["target"] in self.ins:
@@ -270,6 +615,7 @@ class Ctx:
         self.caches = [self.folder / "scenes"] + [projects.ROOT / p / "scenes" for p in st.get("cache_from") or []
                                                    if (projects.ROOT / p / "scenes").exists()]
         self.memo: dict[str, Art] = {}
+        self.force_preview: set[str] = set()   # beat montages evaluated as their 540x960 preview (beat_clip.preview)
 
     def inputs(self, nid: str, port: str) -> list[tuple[str, str]]:
         return self.ins.get(nid, {}).get(port, [])
@@ -390,6 +736,36 @@ def scene_track(c: "Ctx", n: dict, card: videomodels.Card, pre: int = 0) -> tupl
     return path, round(float(cut.get("start") or 0) - pre / graphs.FPS, 3), [a]
 
 
+def scene_sound(c: "Ctx", n: dict, card: videomodels.Card) -> tuple[Optional[Path], float, list]:
+    """The sound an H3 scene is drawn UNDER (graphs.scene's `audio`): (the file, where its piece begins in it in seconds,
+    the inputs' arts to wait for). It is the «звук» input's audio (a «Трек», a recorded or uploaded voice, a «Звук
+    сцены»; the scene's `sound_from` says where its piece begins), else the «Промт»'s only line that has its own sound
+    (`audio` in the line: an uploaded or recorded file of the project). Not «голос»: that input is a SAMPLE of a voice
+    (ID-LoRA) or a song to shoot to (LTX 2.3), a sound to imitate; «звук» is what is actually heard in the shot. Only H3 draws
+    under a sound; anything else: (None, 0, [])."""
+    if card.id != "h3":
+        return None, 0.0, []
+    src = c.inputs(n["id"], "sound")
+    if src and src[0][0] in c.by:
+        a = _out(c, *src[0])
+        if a.state != "ready" or not a.path or not a.path.exists():
+            return None, 0.0, [a]
+        try:
+            at = max(0.0, float(n["data"].get("sound_from") or 0))
+        except (TypeError, ValueError):
+            at = 0.0
+        return a.path, round(at, 3), [a]
+    pr = c.inputs(n["id"], "prompt")
+    if pr and pr[0][0] in c.by:
+        pa = _out(c, *pr[0])
+        own = [ln for ln in pa.lines if ln.get("audio")]
+        if len(pa.lines) == 1 and len(own) == 1:   # one spoken line and it has its sound: the scene is drawn under it
+            p = c.folder / own[0]["audio"]
+            if p.is_file():
+                return p, 0.0, [pa]
+    return None, 0.0, []
+
+
 def seed_of(n: dict) -> int:
     d = n["data"]
     takes = d.get("takes") or []
@@ -440,6 +816,11 @@ def _evaluate(c: Ctx, n: dict, stack: set) -> Art:
         if not d.get("plan"):
             return Art("empty")
         return Art("stale" if d.get("sig") != writer_sig(c, n) else "ready")
+    if t == "series":
+        text = series_text(d)
+        return Art("ready", text=text, key=_sha(text)) if text else Art("empty")
+    if t == "screenplay":
+        return Art("ready" if (d.get("text") or "").strip() else "empty")
     if t == "lora":
         items = [{"id": x["id"], "strength": float(x.get("strength", 0.8))} for x in d.get("items") or [] if x.get("id")]
         return Art("ready", loras=items, key=_sha(items))
@@ -455,6 +836,12 @@ def _evaluate(c: Ctx, n: dict, stack: set) -> Art:
             return Art("empty")
         return Art("stale" if d.get("sig") != clip_writer_sig(c, n) else "ready")
 
+    if t == "pool_writer":
+        from . import graph_beat
+        if not d.get("pool"):
+            return Art("empty")
+        return Art("stale" if d.get("sig") != graph_beat.sig(c, n) else "ready")
+
     if t == "picture":
         src = ins("text")
         if src:
@@ -463,6 +850,9 @@ def _evaluate(c: Ctx, n: dict, stack: set) -> Art:
             text = src[0].picture or src[0].text   # a prompt that feeds a scene too: its picture text, a still's
         else:
             text = (d.get("prompt") or "").strip()
+        text = picture_in_look(d.get("look"), text) if text else text   # a drawn look: its medium, no photo words
+        if text and (rh := (d.get("retry_hint") or "").strip()):   # the beat clip's redraw hint the kept picture was drawn with: in the text, so in the key
+            text = f"{text} {rh}"
         # Krea 2 draws from the text alone (its node has no «образцы»); FLUX.2 Klein from the text, the pictures on
         # «образцы» (picture.edit), or both - pictures without a text make a new photo of the first one's person
         refs = ins("ref") if d.get("model") == "flux2" else []
@@ -488,8 +878,8 @@ def _evaluate(c: Ctx, n: dict, stack: set) -> Art:
         return Art("ready" if p.exists() else "todo", key=key, path=p, text=text, loras=kl)
 
     if t == "scene":
-        pr, start, faces, lo, end = ins("prompt"), ins("start"), ins("faces"), ins("lora"), ins("end")
-        if (u := _upstream(c, pr + start + faces + lo + end)):
+        pr, start, faces, lo, end, snd = ins("prompt"), ins("start"), ins("faces"), ins("lora"), ins("end"), ins("sound")
+        if (u := _upstream(c, pr + start + faces + lo + end + snd)):
             return u
         loras = [x for a in lo for x in a.loras]
         from . import loras as lora_lib
@@ -503,32 +893,50 @@ def _evaluate(c: Ctx, n: dict, stack: set) -> Art:
         tr, tr_at, tr_arts = scene_track(c, n, card, pre)
         if (u := _upstream(c, tr_arts)):
             return u
+        au, au_from, _ = scene_sound(c, n, card)
+        ak = {"audio": au, "audio_from": au_from} if au else {}   # no sound: the keys as they were
         st = start[0].path if start else None
         en = end[0].path if end and card.ends else None   # flf2v: the scene comes to this picture (LTX)
         refs = [a.path for a in faces if a.path] if card.refs else []
         fit = render.start_crop(st, w, h, "continue" if start and start[0].start_of else "new")   # a photo's face
         length = videomodels.frames(card, secs)
         text = scene_text(c, nid)
+        old = scene_text(c, nid, legacy=True)   # a drawn look rewrites a hand-written prompt now; 0.3.0 shot it as written
+        if old == text:
+            old = None
+
+        def shot_of(s: int) -> tuple[str, Optional[tuple[Path, Path]], str]:
+            """(key, cached shot, the prompt it holds) of seed s: a shot made with the earlier prompt is kept, not reshot."""
+            k = render.scene_key(text, s, w, h, length, loras, st, refs, card.id, tr, tr_at, end=en, fit=fit, **ak)
+            hit = c.cached_shot(k)
+            if not hit and old:
+                k0 = render.scene_key(old, s, w, h, length, loras, st, refs, card.id, tr, tr_at, end=en, fit=fit, **ak)
+                if (hit0 := c.cached_shot(k0)):
+                    return k0, hit0, old
+            return k, hit, text
+
         takes = []
         for s in [int(x) for x in d.get("takes") or []] or [seed_of(n)]:
-            k = render.scene_key(text, s, w, h, length, loras, st, refs, card.id, tr, tr_at, end=en, fit=fit)
-            hit = c.cached_shot(k)
+            k, hit, _ = shot_of(s)
             takes.append({"seed": s, "key": k, "cached": bool(hit), "png": hit[1] if hit else None})
         seed = seed_of(n)
-        key = render.scene_key(text, seed, w, h, length, loras, st, refs, card.id, tr, tr_at, end=en, fit=fit)
-        hit = c.cached_shot(key)
+        key, hit, text = shot_of(seed)
         a = Art("ready" if hit else "todo", key=key, text=text, loras=loras, refs=bool(refs), takes=takes,
                 start_of=start[0].start_of if start else None, seconds=secs, woven=text if pr[0].lines else None,
                 model=card.id if card is not c.card else None)
         if c.inputs(nid, "clip") or (c.inputs(nid, "voice") and not tr):
             a.warn = i18n.L("входы «сцена» и «голос» читает только LoRA по образцу (во входе «LoRA»): эта сцена снимется без них",
                             "only a sample LoRA (in the «LoRA» input) reads the «scene» and «voice» inputs: this scene will be shot without them")
+        elif snd and card.id != "h3":
+            a.warn = i18n.L(f"{card.name} не снимает под готовый звук: вход «звук» возьмёт только H3 — сцена снимется без него",
+                            f"{card.name} can't be shot under a given sound: only H3 takes the «sound» input — the scene will be shot without it")
         elif end and not card.ends:
             a.warn = i18n.L(f"{card.name} не умеет приходить к кадру: вход «конец» возьмёт только LTX — сцена снимется без него",
                             f"{card.name} can't end on a frame: only LTX takes the «end» input — the scene will be shot without it")
         if hit:
             a.path, a.png = hit
             a.checks = checks.saved(a.path)
+            a.lips = checks.saved_lips(a.path) if au else None
         else:
             a.path, a.png = render.shot_paths(c.folder / "scenes", key)
         return a
@@ -629,6 +1037,9 @@ def _evaluate(c: Ctx, n: dict, stack: set) -> Art:
                             "«Check the faces» without the «face» input: connect the hero's photo or portrait — otherwise the faces are not checked")
         return a
 
+    if t == "beat_montage":
+        return _evaluate_beat(c, n, ins)
+
     if t == "music":
         v, au = ins("video"), ins("audio")
         if not v or not au:
@@ -648,14 +1059,235 @@ def _evaluate(c: Ctx, n: dict, stack: set) -> Art:
             return u
         out = post.output_of({"output": d.get("output") or {"size": "1080p"}})
         if not post.tag(out):   # «как снято»: the input itself
-            return Art("ready", key=v[0].key, path=v[0].path, seconds=v[0].seconds)
-        key = _sha("output", v[0].key, out, c.aspect)
-        p = c.folder / "out" / f"{key}.mp4"
-        return Art("ready" if p.exists() else "todo", key=key, path=p, cuts=v[0].cuts, seconds=v[0].seconds)
+            a = Art("ready", key=v[0].key, path=v[0].path, seconds=v[0].seconds)
+        else:
+            key = _sha("output", v[0].key, out, c.aspect)
+            p = c.folder / "out" / f"{key}.mp4"
+            a = Art("ready" if p.exists() else "todo", key=key, path=p, cuts=v[0].cuts, seconds=v[0].seconds)
+        if d.get("phone") or d.get("cover"):
+            _output_extras(c, d, a, v[0])
+        return a
     return Art("idle")
 
 
-LENGTHS = ("whole", "best", "own")   # «Песня»: the whole song, the best minute (autopilot.window), a piece of its own
+PHONE_MB = 10.0   # the phone copy's size limit (TikTok's upload limit)
+
+
+def cover_time(d: dict, src: Art) -> float:
+    """The cover's second: the node's `cover_at`, else the drop's impact (the beat montage saves it beside its file), else 0."""
+    if d.get("cover_at") not in (None, ""):
+        try:
+            return max(0.0, float(d["cover_at"]))
+        except (TypeError, ValueError):   # a stored value that is not a number: the drop's frame, as without one
+            pass
+    try:
+        return float(json.loads(src.path.with_suffix(".json").read_text(encoding="utf-8"))["drop"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return 0.0
+
+
+def _output_extras(c: Ctx, d: dict, a: Art, src: Art) -> None:
+    """The output's phone copy (<= PHONE_MB) and cover frame, when its switches are on: files next to the output, named by its
+    key (the cover also by its second). The output is `todo` until they exist."""
+    a.extra = {"cover_at": round(cover_time(d, src), 2)}
+    if d.get("phone"):
+        a.extra["phone"] = c.folder / "out" / f"phone_{a.key}.mp4"
+    if d.get("cover"):
+        a.extra["cover"] = c.folder / "out" / f"cover_{a.key}_{int(round(a.extra['cover_at'] * 100))}.png"
+    if a.state == "ready" and any(not p.exists() for k, p in a.extra.items() if k in ("phone", "cover")):
+        a.state = "todo"
+
+
+BEAT_RENDER_S = 4.2   # a beat montage renders about this many seconds per second of its clip on the CPU (measured 2026-11-06: 96-103 s for a 24 s clip, 1080x1920, 60 fps)
+
+
+def beat_roles(c: Ctx, ids: list[str]) -> list[str]:
+    """The roles of a «Бит-монтаж»'s shots (hero | atmos | close | impact | riser): each scene's own `role`; a scene with
+    none is a hero or an atmosphere in turn."""
+    from . import beatedit
+    return [r if (r := c.by[s]["data"].get("role")) in beatedit.ROLES else beatedit.default_role(k) for k, s in enumerate(ids)]
+
+
+def song_sig(sid: str) -> str:
+    """A song file's identity for a pinned drop: its size and time of change."""
+    from . import song
+    st = song.file_of(sid).stat()
+    return f"{st.st_size}:{st.st_mtime_ns}"
+
+
+def beat_drop(d: dict, sid: str) -> float:
+    """The drop of a beat montage: the user's (data.drop), else the one pinned when the clip's window was made (data.drop_auto,
+    valid while the song file is the same), else the song's own guess. autopilot.drop_at moves with the recognised words and the
+    lyrics text, so a drop that is not pinned would re-cut the montage after every edit of the words."""
+    from . import autopilot
+    if d.get("drop") not in (None, "", 0):
+        return float(d["drop"])
+    pin = d.get("drop_auto")
+    if isinstance(pin, dict) and pin.get("drop") is not None:
+        try:
+            if pin.get("sig") == song_sig(sid):
+                return float(pin["drop"])
+        except (OSError, EngineError, ValueError, TypeError):
+            pass
+    return autopilot.drop_at(sid)
+
+
+def _evaluate_beat(c: Ctx, n: dict, ins) -> Art:
+    """«Бит-монтаж»: the scenes on `clips` are the pool, the «Песня» on `track` gives the beat grid, the words and the drop,
+    `title` (a text) the clip's title. Its key is the scenes' keys with their roles, the song's, the window and every
+    parameter - a change that only touches the render (a preset, a colour) leaves the scenes alone."""
+    from . import autopilot, beat_models, beatedit, song
+    d, nid = n["data"], n["id"]
+    if not c.inputs(nid, "clips"):
+        return Art("error", error=i18n.L("нет сцен на входе", "no scenes at the input"))
+    ids = join_order(c, nid)
+    arts = [_out(c, s, "clip") for s in ids]
+    tra, tit = ins("track"), ins("title")
+    if (u := _upstream(c, arts + tra + tit)):
+        return u
+    if not (tra and tra[0].song):
+        return Art("error", error=i18n.L("«Бит-монтаж» нужна «Песня» во входе «трек»: по её долям режутся сцены",
+                                         "«Beat montage» needs a «Song» at the «track» input: the scenes are cut on its beats"))
+    sid = tra[0].song
+    try:
+        an = song.analysis(sid)
+        recd = song.recognised(sid)
+        drop = beat_drop(d, sid)
+        src = song.file_of(sid)
+        text_f = song.folder(sid) / "text.txt"
+        written = text_f.read_text(encoding="utf-8") if text_f.exists() else None
+    except (EngineError, OSError, ValueError, TypeError) as e:
+        return Art("error", error=str(e))
+    if len(an.beats) < 8:   # the same condition as beatedit.make_grid's
+        return Art("error", error=i18n.L("в песне слишком мало долей для бита (меньше 8): нужна песня с ровным ритмом",
+                                         "the song has too few beats (fewer than 8): a song with a steady rhythm is needed"))
+    roles = beat_roles(c, ids)
+    words = [{"start": w["start"], "end": w["end"], "word": w["word"]} for line in (recd or {}).get("lines", []) for w in line.get("words", [])]
+    known = beatedit.PRESETS["techno"]
+    over = {k: v for k, v in (d.get("params") or {}).items() if k in known} if isinstance(d.get("params"), dict) else {}
+    pal = d.get("palette") if isinstance(d.get("palette"), dict) else {}
+    # the clip's title: a text on «title», else data.clip_title (data.title is the card's own name «Бит-монтаж», which
+    # the first beat clips of 2026-11-06 drew as their title), else the song's name; the sung words are never filtered, the title is
+    own_title = tit[0].text if tit else (d["clip_title"] if "clip_title" in d else song.title_of(sid))
+    title = looks.clean_text((own_title or "").strip())
+    edits = [e for e in d.get("caption_edits") or [] if isinstance(e, dict) and "i" in e]
+    try:
+        fps = 30 if int(d.get("fps") or 60) == 30 else 60
+        loud = float(d["loudness"]) if d.get("loudness") not in (None, "") else beatedit.DEFAULTS["loudness"]
+        bpm = float(d["bpm"]) if d.get("bpm") not in (None, "") else None
+    except (TypeError, ValueError):
+        return Art("error", error=i18n.L("громкость, темп или кадры в секунду — не число", "the loudness, tempo or frames per second is not a number"))
+    preset = d.get("preset") if d.get("preset") in beatedit.PRESETS else "techno"
+    preview = bool(d.get("preview")) or nid in c.force_preview
+    pres = [beat_models.preroll(scene_card(c, c.by[s])[0].id) if c.by[s]["type"] == "scene" else beat_models.preroll(None) for s in ids]
+    cfg = {"clips": [{"id": s, "path": str(a.path), "role": r, "pre": p_} for s, a, r, p_ in zip(ids, arts, roles, pres)],
+           "song": str(src), "analysis": {"beats": an.beats, "bpm": an.bpm}, "drop": round(drop, 4), "bpm": bpm,
+           "words": words, "written": written, "title": title, "hud": looks.clean_text((d.get("hud") or "").strip()), "palette": pal,
+           "preset": preset, "params": over, "fps": fps, "loudness": loud, "preview": preview, "caption_edits": edits}
+    # the scenes' keys + roles, the song (its id, not the song node's key: that one holds the node's piece, which the montage
+    # does not use), the drop, then everything that only the render reads
+    # a scene's pre-roll is in the key only when it is not H3's (the montage plays from there): an H3 beat project keeps its keys
+    key = _sha("beat", [(a.key, r) + (() if p_ == beatedit.PRE_DEFAULT else (p_,)) for a, r, p_ in zip(arts, roles, pres)], sid, cfg["drop"], bpm, preset, over, pal, title, cfg["hud"],
+               fps, loud, preview, _sha(words, written, edits), beatedit.VERSION)
+    p = c.folder / "out" / f"beat_{key}.mp4"
+    cuts = _cuts(p)
+    p_ = beatedit.params_of(cfg)
+    secs = (p_["build_bars"] + p_["drop_bars"] + 2) * 4 * an.beat_s
+    try:
+        secs = float(json.loads(p.with_suffix(".json").read_text(encoding="utf-8"))["dur"]) if p.exists() else secs
+    except (OSError, ValueError, KeyError):
+        pass
+    a = Art("ready" if p.exists() and cuts is not None else "todo", key=key, path=p, cuts=cuts or [], seconds=round(secs, 3), beat=cfg)
+    if "close" not in roles:
+        a.warn = i18n.L("нет шота с ролью «крупный план» (close): вступление и концовка возьмут героя",
+                        "no shot with the «close» role: the intro and the outro take a hero shot")
+    return a
+
+
+async def _run_beat(cfg_file: Path, on_progress) -> tuple[int, str, list[str]]:
+    """app.beatedit on a cfg as a process of its own (the CPU render must not hold this loop): (exit code, the error it
+    printed, the last lines). A plain Popen read in a thread, like song._tool: under `uvicorn --reload` on Windows the loop
+    is a selector loop, where asyncio.create_subprocess_exec raises NotImplementedError."""
+    import sys
+    env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+    env.update(FFMPEG=config.FFMPEG, PYTHONIOENCODING="utf-8")
+    proc = subprocess.Popen([sys.executable, "-u", "-m", "app.beatedit", str(cfg_file)], cwd=str(config.ROOT), env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, creationflags=NO_WINDOW, **({} if os.name == "nt" else {"start_new_session": True}))
+    tail: list[str] = []
+    error: list[str] = []
+    loop = asyncio.get_running_loop()
+
+    def read() -> int:
+        assert proc.stdout
+        for raw in proc.stdout:
+            line = raw.decode("utf-8", errors="replace").rstrip()
+            tail.append(line)
+            del tail[:-20]
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(msg, dict) and msg.get("error"):
+                error.append(msg["error"])
+            elif isinstance(msg, dict) and msg.get("stage"):
+                loop.call_soon_threadsafe(on_progress, msg)
+        return proc.wait()
+    try:
+        code = await asyncio.to_thread(read)
+    except asyncio.CancelledError:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, creationflags=NO_WINDOW)
+        else:   # its own session (start_new_session): the whole group goes
+            import signal
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                proc.kill()
+        raise
+    return code, (error[0] if error else ""), tail
+
+
+def _pin_beat_drop(c: Ctx, x: str, a: Art) -> None:
+    """A montage built by hand (not by the beat clip's button) has no pinned drop, so it would follow every edit of the words.
+    Evaluation stays pure; the first build pins the drop it was built with (the same value, so the cache key does not change)."""
+    d = c.by[x]["data"]
+    if d.get("drop") not in (None, "", 0) or d.get("drop_auto") or not a.beat or a.beat.get("drop") is None:
+        return
+    try:
+        sid = _out(c, *c.inputs(x, "track")[0]).song
+        pin = {"drop": a.beat["drop"], "sig": song_sig(sid)}
+
+        def put(g: dict) -> None:
+            if (n := node(g, x)) and n["data"].get("drop") in (None, "", 0) and not n["data"].get("drop_auto"):
+                n["data"]["drop_auto"] = pin
+        update(c.pid, put)
+    except (EngineError, OSError, ValueError, TypeError, IndexError, KeyError):
+        pass   # a pin is a convenience: a build never fails for it
+
+
+async def _make_beat(job: jobs.Job, x: str, a: Art) -> None:
+    """The beat montage's file: its cfg next to it, the renderer's progress into the node's row of the job."""
+    a.path.parent.mkdir(exist_ok=True)
+    cfg_file = a.path.with_suffix(".cfg.json")
+    cfg_file.write_text(json.dumps({**a.beat, "out": str(a.path)}, ensure_ascii=False), encoding="utf-8")
+    job.phase = "rendering"
+    row = job.progress.get("nodes", {}).get(x, {})
+    label = {"plan": "grid", "audio": "sound", "shots": "shots", "frames": "frames"}
+
+    def on_progress(m: dict) -> None:
+        if m.get("stage") == "done":
+            return
+        row.update(stage=m.get("stage"), done=m.get("done"), total=m.get("total"))
+        job.progress["message"] = f"{label.get(m.get('stage'), m.get('stage'))} {m.get('done')}/{m.get('total')}"
+    try:
+        code, error, tail = await _run_beat(cfg_file, on_progress)
+    finally:
+        cfg_file.unlink(missing_ok=True)
+    if code != 0 or not a.path.exists():
+        raise EngineError(i18n.L("Бит-монтаж не собрался: ", "The beat montage failed: ") + (error or "\n".join(tail[-4:])))
+
+
+LENGTHS = ("whole", "best", "own", "drop")   # «Песня»: the whole song, the best minute (autopilot.window), a piece of its own, the drop (beat clip)
 
 
 def song_piece(sid: str, d: dict) -> tuple[float, float]:
@@ -770,6 +1402,9 @@ def _evaluate_ref_scene(c: Ctx, n: dict, ins, refl: list[dict], plain: list[dict
         if (u := _upstream(c, clip_in)):
             return u
         text = v2v.prompt_of(prof, scene_text(c, nid) or "")
+        old = v2v.prompt_of(prof, scene_text(c, nid, legacy=True) or "")   # 0.3.0 shot it as written, before a drawn look rewrote it
+        if old == text:
+            old = None
         if prof["prompt"] == "required" and not (pa and pa.text) and not prof["template"]:
             return Art("error", error=i18n.L("этой LoRA нужен промт: что сделать с клипом", "this LoRA needs a prompt: what to do with the clip"))
         pics = [a.path for a in faces if a.path] if eng == "h3" else []
@@ -780,15 +1415,15 @@ def _evaluate_ref_scene(c: Ctx, n: dict, ins, refl: list[dict], plain: list[dict
             [getattr(config, k) for k in card.keys]
         shas = [render.file_sha(p) for p in pics]
 
-        def key_for(s: int) -> str:   # the «Видео → видео» key's parts, as a scene's
-            return _sha("v2v-scene", clip_in[0].key, info.id, info.size_mb, strength, guide if eng != "h3" else None, s, text, shas,
+        def key_for(s: int, t: str = text) -> str:   # the «Видео → видео» key's parts, as a scene's
+            return _sha("v2v-scene", clip_in[0].key, info.id, info.size_mb, strength, guide if eng != "h3" else None, s, t, shas,
                         extra, v2v.key_of(prof), weights)
         unused += [i18n.L("«старт»", "«start»")] if start else []
         unused += [i18n.L("«голос»", "«voice»")] if voice_in else []
         unused += [i18n.L("«лица»", "«faces»")] if faces and eng != "h3" else []
         ref = {"mode": "clip", "info": info, "prof": prof, "strength": strength, "guide": guide, "pics": pics, "extra": extra,
                "clip": clip_in[0]}
-        a = _ref_art(c, key_for, seeds, seed, text=text, seconds=clip_in[0].seconds, model=eng, ref=ref, loras=extra)
+        a = _ref_art(c, key_for, seeds, seed, old=old, text=text, seconds=clip_in[0].seconds, model=eng, ref=ref, loras=extra)
         if prof["out"] == "matte":
             a.alpha = a.path.with_suffix(".webm")
             if a.state == "ready" and not a.alpha.exists():
@@ -832,29 +1467,38 @@ def _evaluate_ref_scene(c: Ctx, n: dict, ins, refl: list[dict], plain: list[dict
     return a
 
 
-def _ref_art(c: Ctx, key_for, seeds: list[int], seed: int, **kw) -> Art:
-    """A reference scene's Art: its takes and its shot, here or in a cache, as a scene's."""
-    takes = []
-    for s in seeds:
+def _ref_art(c: Ctx, key_for, seeds: list[int], seed: int, old: Optional[str] = None, **kw) -> Art:
+    """A reference scene's Art: its takes and its shot, here or in a cache, as a scene's. `old`: the prompt as 0.3.0 had it
+    (key_for(s, old)) - a shot made with it is kept, not reshot."""
+    def shot_of(s: int) -> tuple[str, Optional[tuple[Path, Path]], bool]:
         k = key_for(s)
         hit = c.cached_shot(k)
+        if not hit and old:
+            k0 = key_for(s, old)
+            if (hit0 := c.cached_shot(k0)):
+                return k0, hit0, True
+        return k, hit, False
+    takes = []
+    for s in seeds:
+        k, hit, _ = shot_of(s)
         takes.append({"seed": s, "key": k, "cached": bool(hit), "png": hit[1] if hit else None})
-    key = key_for(seed)
-    hit = c.cached_shot(key)
+    key, hit, was_old = shot_of(seed)
+    if was_old:
+        kw["text"] = old
     a = Art("ready" if hit else "todo", key=key, takes=takes, **kw)
     a.path, a.png = hit if hit else render.shot_paths(c.folder / "scenes", key)
     a.checks = checks.saved(a.path) if hit else None
     return a
 
 
-def scene_text(c: Ctx, nid: str) -> Optional[str]:
+def scene_text(c: Ctx, nid: str, legacy: bool = False) -> Optional[str]:
     """What H3 gets as a scene's prompt: its «Промт»'s text with the spoken lines woven in for the scene's length
     (prompts.weave_lines; without lines - the text as it is). None: no prompt or an empty one."""
     pr = c.inputs(nid, "prompt")
     a = _out(c, *pr[0]) if pr and pr[0][0] in c.by else None
     if not a or a.state != "ready":
         return None
-    text = look_text(c, nid, pr[0][0], a.text)
+    text = look_text(c, nid, pr[0][0], a.text, legacy)
     return prompts.weave_lines(text, a.lines, math.ceil(seconds_of(c.by[nid])), i18n.plan_lang_name(c.proj)) if a.lines else text
 
 
@@ -867,12 +1511,58 @@ def project_look(proj: dict) -> Optional[str]:
     return looks.look_of(dict(st))["style_en"] or None
 
 
-def look_text(c: Ctx, nid: str, src: str, text: str) -> str:
+def look_text(c: Ctx, nid: str, src: str, text: str, legacy: bool = False) -> str:
     """A scene's prompt in its look: the scene's own (its node's `look`, the chip ◆ on it) or the project's. A writer's
     prompt already starts with its plan's look (look_style) - that one is swapped; a prompt written by hand gets the
-    look's words in front. Nothing chosen: the text as it is (an older graph's keys stay)."""
+    look's words in front. Nothing chosen: the text as it is (an older graph's keys stay). `legacy`: the text as it was
+    before a drawn look rewrote it (a73783a) - for finding a shot made in 0.3.0 (see the scene node's cache lookup)."""
     d = c.by[nid]["data"]
     own = d.get("look") if d.get("look") in looks.LOOKS and d.get("look") != looks.AUTO else None
+    out = _look_swap(c, nid, src, text, own)
+    lid = scene_look(c, nid)
+    # live looks, none, an older graph, and a writer's prompt (its plan holds the look itself; its shot scenes keep
+    # their cache keys): the text as it was
+    if legacy or not looks.drawn_of(lid) or ((c.by.get(src) or {}).get("data") or {}).get("from"):
+        return out
+    out = looks.unphoto_text(out)
+    lk = looks.LOOKS[lid]
+    if looks.frame_look(lid):   # H3 holds a drawn look from a picture, not from words (see frame_look_of)
+        start = bool(c.inputs(nid, "start"))
+        add = lk["tech_en"] if start else lk["frame_en"]
+        if add.lower() in out.lower():   # a writer's plan of looks_v 2 has said it already
+            return out
+        return f"{out} {add}" if start else f"{add} {out}"
+    return out
+
+
+def scene_look(c: Ctx, nid: str) -> Optional[str]:
+    """The look id in effect for scene `nid`: its own (the chip ◆), else the project's «Стиль проекта»; None: not chosen."""
+    d = c.by[nid]["data"]
+    if d.get("look") in looks.LOOKS and d.get("look") != looks.AUTO:
+        return d["look"]
+    st = c.proj.get("settings") or {}
+    if "delivery" not in st or str(st.get("look") or looks.AUTO) == looks.AUTO:
+        return None
+    return looks.resolve(dict(st))[1]
+
+
+def frame_look_of(c: Ctx, nid: str) -> Optional[str]:
+    """A scene's look when it is drawn by every frame (FRAME_LOOKS) and the scene has no «старт» picture: the interface
+    offers to draw the first frame. None otherwise."""
+    if c.by[nid]["type"] != "scene" or c.inputs(nid, "start"):
+        return None
+    lid = scene_look(c, nid)
+    return lid if looks.frame_look(lid) else None
+
+
+def picture_in_look(look: Optional[str], text: str) -> str:
+    """A «Картинка» node's prompt in a drawn-by-frame look: the look's medium in front, the photographic words out."""
+    if not looks.frame_look(look):
+        return text
+    return f"{looks.LOOKS[look]['frame_en']} {looks.unphoto_text(text)}"
+
+
+def _look_swap(c: Ctx, nid: str, src: str, text: str, own: Optional[str]) -> str:
     pn = c.by.get(src) or {}
     w = c.by.get((pn.get("data") or {}).get("from")) or {}
     have = (((w.get("data") or {}).get("plan")) or {}).get("look_style") or ""
@@ -1073,6 +1763,20 @@ def state(proj: dict, g: dict, quality: Optional[str] = None) -> dict:
     nodes = {k: a.public(c.folder) for k, a in arts.items()}
     for k, w in drift(c).items():
         nodes[k]["warn"] = w
+    for n in g["nodes"]:   # a hero from the actor library: the card shows the actor (name, look), not the template's old text
+        if n["type"] == "hero" and n["data"].get("actor") and n["id"] in nodes:
+            from . import actors
+            aid = n["data"]["actor"]
+            own = actors.series_root(proj["series"]) if proj.get("series") and actors.exists(aid, actors.series_root(proj["series"])) else None
+            if actors.exists(aid, own):
+                a = actors.get(aid, own)
+                # the picture the hero card shows: the same fallback as actors.hero_data (face, else look reference, else photo)
+                pic = next(((w, p) for w in ("face", "ref", "photo") if (p := actors.image_path(aid, w, own)).exists()), None)
+                nodes[n["id"]]["actor"] = {"name": a.get("name") or "", "look_ru": a.get("look_ru") or "", "look_en": a.get("look_en") or "",
+                                           "image": pic[0] if pic else None, "v": int(pic[1].stat().st_mtime) if pic else 0}
+    for k in nodes:   # a drawn look with no first frame: the card offers to draw it
+        if (fl := frame_look_of(c, k)):
+            nodes[k]["frame_look"] = fl
     return {"quality": c.quality, "width": c.w, "height": c.h, "auto_size": [c.auto_w, c.auto_h], "own_size": bool(c.own),
             "rev": g.get("rev", 0), "nodes": nodes, **est}
 
@@ -1139,6 +1843,8 @@ def estimate(c: Ctx, arts: dict[str, Art], need: set[str]) -> dict:
         if t == "facefix" and a.state in ("todo", "wait"):
             from . import facefix
             secs += facefix.seconds(a.seconds or LENGTH_S)
+        if t == "beat_montage" and a.state in ("todo", "wait"):
+            secs += BEAT_RENDER_S * (a.seconds or 24)
         if t in ("join", "montage", "music", "output") and a.state in ("todo", "wait"):
             v = a.seconds or 5 * len(shoot)
             secs += 3 if t == "music" else 2 + 0.05 * v if t in ("join", "montage") else post.seconds(
@@ -1194,61 +1900,68 @@ async def run(job: jobs.Job, pid: str, targets: Optional[list[str]], quality: Op
                            round(__import__("app.facefix", fromlist=["seconds"]).seconds(arts[x].seconds or LENGTH_S)) if c.by[x]["type"] == "facefix" else 0}
                        for x in need if c.by[x]["type"] in MAKES})
     t0, last_ref, made, tried, audited = time.time(), None, 0, set(), set()
-    while True:
-        c = Ctx(proj, g, quality, failed)
-        arts = evaluate(c)
-        for x, row in prog["nodes"].items():
-            a = arts[x]
-            if row["status"] in ("queued",) and a.state == "blocked":
-                row["status"] = "blocked"
-            elif row["status"] == "blocked" and a.state not in ("blocked", "error"):
-                row["status"] = "queued"
-            if a.state == "error" and row["status"] not in ("error",):
-                row.update(status="error", error=a.error)
-        todo = [x for x in need if arts[x].state == "todo" and c.by[x]["type"] in MAKES]
-        if not todo:
-            break
-        if job.stop_after:
+    ahead, ahead_files = set(), []   # the scenes whose prompts went into a text-encoder pass ahead (_encode_ahead)
+    try:
+        while True:
+            c = Ctx(proj, g, quality, failed)
+            arts = evaluate(c)
             for x, row in prog["nodes"].items():
-                if row["status"] in ("queued", "blocked"):
-                    row["status"] = "skipped"
-            break
-        x = _pick(c, arts, todo, last_ref)
-        row = prog["nodes"][x]
-        row.update(status="running", key=arts[x].key)
-        prog["current"] = x
-        if c.by[x]["type"] == "montage" and c.by[x]["data"].get("faces") and face_judged(c, x) and x not in audited:
-            # its scenes are shot: the button's face audit first, then the montage of the takes it chose
-            audited.add(x)
+                a = arts[x]
+                if row["status"] in ("queued",) and a.state == "blocked":
+                    row["status"] = "blocked"
+                elif row["status"] == "blocked" and a.state not in ("blocked", "error"):
+                    row["status"] = "queued"
+                if a.state == "error" and row["status"] not in ("error",):
+                    row.update(status="error", error=a.error)
+            todo = [x for x in need if arts[x].state == "todo" and c.by[x]["type"] in MAKES]
+            if not todo:
+                break
+            if job.stop_after:
+                for x, row in prog["nodes"].items():
+                    if row["status"] in ("queued", "blocked"):
+                        row["status"] = "skipped"
+                break
+            x = _pick(c, arts, todo, last_ref)
+            row = prog["nodes"][x]
+            row.update(status="running", key=arts[x].key)
+            prog["current"] = x
+            if c.by[x]["type"] == "montage" and c.by[x]["data"].get("faces") and face_judged(c, x) and x not in audited:
+                # its scenes are shot: the button's face audit first, then the montage of the takes it chose
+                audited.add(x)
+                try:
+                    await face_audit(job, pid, x, quality, failed)
+                except asyncio.CancelledError:
+                    row["status"] = "cancelled"
+                    raise
+                except Exception as e:  # noqa: BLE001 - noted; the montage is made of the takes as they are
+                    prog.setdefault("notes", []).append(i18n.L(f"«{c.by[x]['data'].get('title') or 'Монтаж'}»: проверка лиц не прошла — {e}",
+                                                               f"«{c.by[x]['data'].get('title') or 'Montage'}»: the face check failed — {e}"))
+                g = load(pid)
+                continue
+            ts = time.time()
             try:
-                await face_audit(job, pid, x, quality, failed)
+                if x in tried:
+                    raise EngineError(i18n.L("узел сделан, а его файла нет", "the node is done, but its file is missing"))
+                tried.add(x)
+                if c.by[x]["type"] == "scene" and not arts[x].ref and x not in ahead:
+                    ahead_files += await _encode_ahead(job, c, arts, x, todo, ahead)
+                await _make(job, c, x, arts[x])
+                row.update(status="done", seconds=round(time.time() - ts, 1))
+                made += 1
+                if c.by[x]["type"] == "scene":
+                    last_ref = (arts[x].model or c.card.id, arts[x].refs)
+                    for k, r in prog["nodes"].items():   # the speed was measured again
+                        if r["status"] == "queued" and r["type"] == "scene":
+                            r["estimate"] = round(shot_seconds(c, k, arts[k]))
             except asyncio.CancelledError:
                 row["status"] = "cancelled"
                 raise
-            except Exception as e:  # noqa: BLE001 - noted; the montage is made of the takes as they are
-                prog.setdefault("notes", []).append(i18n.L(f"«{c.by[x]['data'].get('title') or 'Монтаж'}»: проверка лиц не прошла — {e}",
-                                                           f"«{c.by[x]['data'].get('title') or 'Montage'}»: the face check failed — {e}"))
-            g = load(pid)
-            continue
-        ts = time.time()
-        try:
-            if x in tried:
-                raise EngineError(i18n.L("узел сделан, а его файла нет", "the node is done, but its file is missing"))
-            tried.add(x)
-            await _make(job, c, x, arts[x])
-            row.update(status="done", seconds=round(time.time() - ts, 1))
-            made += 1
-            if c.by[x]["type"] == "scene":
-                last_ref = (arts[x].model or c.card.id, arts[x].refs)
-                for k, r in prog["nodes"].items():   # the speed was measured again
-                    if r["status"] == "queued" and r["type"] == "scene":
-                        r["estimate"] = round(shot_seconds(c, k, arts[k]))
-        except asyncio.CancelledError:
-            row["status"] = "cancelled"
-            raise
-        except Exception as e:  # noqa: BLE001 - shown on the node; the other branches go on
-            failed[x] = {"key": arts[x].key, "error": str(e)}
-            row.update(status="error", error=str(e))
+            except Exception as e:  # noqa: BLE001 - shown on the node; the other branches go on
+                failed[x] = {"key": arts[x].key, "error": str(e)}
+                row.update(status="error", error=str(e))
+    finally:   # a stop, an error or a cancel: the start frames of scenes encoded ahead and not shot after all go
+        for f in ahead_files:
+            f.unlink(missing_ok=True)
     prog.pop("current", None)
     prog["stage"] = "done"
     result = {"quality": c.quality, "finished": time.time(), "seconds": round(time.time() - t0, 1), "made": made,
@@ -1272,27 +1985,55 @@ def _pick(c: Ctx, arts: dict[str, Art], todo: list[str], last_ref: Optional[tupl
     return min(todo, key=rank)
 
 
+def _scene_kw(c: Ctx, x: str, a: Art) -> dict:
+    """A plain scene node's render.shoot_scene arguments (its shot in _make, its prompt ahead in _encode_ahead)."""
+    n = c.by[x]
+    start = c.inputs(x, "start")
+    st_art = _out(c, *start[0]) if start else None
+    kind = "continue" if st_art and st_art.start_of else "new"   # a last frame as it is; a photo cropped to the frame
+    faces = [_out(c, s, sp).path for s, sp in c.inputs(x, "faces")]
+    card, w, h = scene_card(c, n)
+    tr, tr_at, _ = scene_track(c, n, card, scene_frames(c, n, card)[1])
+    au, au_from, _ = scene_sound(c, n, card)
+    return dict(prompt=a.text, kind=kind, seed=seed_of(n), w=w, h=h, length=videomodels.frames(card, a.seconds), loras=a.loras,
+                start=st_art.path if st_art else None, refs=[f for f in faces if f], quality=c.quality, model=card.id,
+                track=tr, track_start=tr_at, end=_out(c, *c.inputs(x, "end")[0]).path if c.inputs(x, "end") else None,
+                **({"audio": au, "audio_from": au_from} if au else {}))
+
+
+async def _encode_ahead(job: jobs.Job, c: Ctx, arts: dict[str, Art], x: str, todo: list[str], done: set) -> list[Path]:
+    """Before plain scene `x`, when H3 shoots it: the prompts of it and of every other plain H3 scene that can be shot
+    now, in one pass of the text encoder (render.encode_ahead). `done`: the scenes already in such a pass (not encoded
+    twice). -> the files it put into COMFY_INPUT."""
+    calls = {}
+    for y in [x] + [y for y in todo if y != x and y not in done and c.by[y]["type"] == "scene" and not arts[y].ref]:
+        try:
+            kw = _scene_kw(c, y, arts[y])
+        except Exception:  # noqa: BLE001 - such a node's own shot reports what is wrong with it
+            continue
+        if videomodels.shooter(videomodels.card(kw["model"])).id == "h3" and (kw["start"] is None or kw["start"].exists()):
+            calls[y] = kw
+    if x not in calls:   # another model's scene: its scenes first (_pick), the H3 ones then get their pass
+        return []
+    done.update(calls)
+    return await render.encode_ahead(job, c.pid, c.folder / "scenes", list(calls.values()))
+
+
 async def _make(job: jobs.Job, c: Ctx, x: str, a: Art) -> None:
     n = c.by[x]
     t, d = n["type"], n["data"]
     if t == "scene" and a.ref:
         await _make_ref_scene(job, c, x, a)
     elif t == "scene":
-        start = c.inputs(x, "start")
-        st_art = _out(c, *start[0]) if start else None
-        kind = "continue" if st_art and st_art.start_of else "new"   # a last frame as it is; a photo cropped to the frame
-        faces = [_out(c, s, sp).path for s, sp in c.inputs(x, "faces")]
+        kw = _scene_kw(c, x, a)
         title = d.get("title") or i18n.L("Сцена", "Scene")
-        card, w, h = scene_card(c, n)
-        tr, tr_at, _ = scene_track(c, n, card, scene_frames(c, n, card)[1])
-        res = await render.shoot_scene(job, c.pid, c.folder / "scenes", a.text, kind, seed_of(n), w, h,
-                                       videomodels.frames(card, a.seconds), a.loras, st_art.path if st_art else None,
-                                       [f for f in faces if f], c.quality, label=f"«{title}»", model=card.id,
-                                       track=tr, track_start=tr_at,
-                                       end=_out(c, *c.inputs(x, "end")[0]).path if c.inputs(x, "end") else None)
+        res = await render.shoot_scene(job, c.pid, c.folder / "scenes", label=f"«{title}»", **kw)
         if not res["cached"]:   # the clip's checks (phase 10, stage A): a badge on the node; «Ещё дубль» is the user's
-            face = (st_art.path if st_art else None) or next((f for f in faces if f), None)
+            face = kw["start"] or next((f for f in kw["refs"]), None)
             await asyncio.to_thread(checks.check_clip, res["mp4"], face)
+            if kw.get("audio"):   # drawn under a given sound: the lips' motion in its voiced / silent frames, for the page (not a blocker)
+                await asyncio.to_thread(lambda: checks.save_lips(res["mp4"], checks.audio_lips(
+                    res["mp4"], kw["audio"], kw.get("audio_from", 0.0), kw["length"], graphs.FPS)))
     elif t == "picture":
         from . import picture
         text = a.text if a.text else _picture_text(c, x)
@@ -1346,6 +2087,9 @@ async def _make(job: jobs.Job, c: Ctx, x: str, a: Art) -> None:
             await asyncio.to_thread(edit.mix, ed, c.folder, pic, track, a.path)
             pic.unlink(missing_ok=True)
         a.path.with_suffix(".json").write_text(json.dumps({"cuts": cuts, "clips": [x["id"] for x in ed["clips"]]}), encoding="utf-8")
+    elif t == "beat_montage":
+        _pin_beat_drop(c, x, a)
+        await _make_beat(job, x, a)
     elif t == "music":
         v = _out(c, *c.inputs(x, "video")[0])
         au = _out(c, *c.inputs(x, "audio")[0])
@@ -1373,9 +2117,15 @@ async def _make(job: jobs.Job, c: Ctx, x: str, a: Art) -> None:
         v = _out(c, *c.inputs(x, "video")[0])
         out = post.output_of({"output": d.get("output") or {"size": "1080p"}})
         a.path.parent.mkdir(exist_ok=True)
-        job.phase = "upscaling"
-        # an own frame: the output keeps its proportions instead of the format's 1080p / 4k frame
-        await asyncio.to_thread(post.finish, v.path, a.path, c.w, c.h, "own" if c.own else c.aspect, out, v.cuts, c.folder / "_post")
+        if not a.path.exists():
+            job.phase = "upscaling"
+            # an own frame: the output keeps its proportions instead of the format's 1080p / 4k frame
+            await asyncio.to_thread(post.finish, v.path, a.path, c.w, c.h, "own" if c.own else c.aspect, out, v.cuts, c.folder / "_post")
+        if (p := a.extra.get("phone")) and not p.exists():
+            job.phase = "phone copy"
+            await asyncio.to_thread(post.phone_copy, a.path, p, PHONE_MB)
+        if (p := a.extra.get("cover")) and not p.exists():
+            await asyncio.to_thread(post.cover_frame, a.path, p, a.extra["cover_at"])
 
 
 async def _make_ref_scene(job: jobs.Job, c: Ctx, x: str, a: Art) -> None:
@@ -1520,7 +2270,7 @@ def _picture_text(c: Ctx, x: str) -> str:
     if not src:
         return c.by[x]["data"].get("prompt") or ""
     a = _out(c, *src[0])
-    return a.picture or a.text
+    return picture_in_look(c.by[x]["data"].get("look"), a.picture or a.text)
 
 
 def _ffmpeg(args: list[str]) -> None:
@@ -1575,7 +2325,7 @@ def hero_cast(h: dict) -> dict:
     return out
 
 
-async def run_llm(job: jobs.Job, pid: str, ids: list[str], model: Optional[str]) -> dict:
+async def run_llm(job: jobs.Job, pid: str, ids: list[str], model: Optional[str], action: str = "write", edited: str = "keep") -> dict:
     """«Переписать» for LLM nodes: heroes «Описать по фото», prompts «Придумать реплики» and writers «Написать», all
     in one model load (the session is re-entrant: llm.session inside keeps the server up). The results go into the
     graph (rev + 1)."""
@@ -1589,6 +2339,8 @@ async def run_llm(job: jobs.Job, pid: str, ids: list[str], model: Optional[str])
     texts = [n for n in todo if n["type"] == "prompt"]
     writers = [n for n in todo if n["type"] == "writer"]
     clip_writers = [n for n in todo if n["type"] == "clip_writer"]
+    pool_writers = [n for n in todo if n["type"] == "pool_writer"]
+    plays = [n for n in todo if n["type"] == "screenplay"]
     prog = job.progress
     prog.update(stage="llm", nodes={n["id"]: {"status": "queued", "type": n["type"]} for n in todo})
     done = {}
@@ -1657,6 +2409,16 @@ async def run_llm(job: jobs.Job, pid: str, ids: list[str], model: Optional[str])
             p = check.plan(p)
             done[w["id"]] = {"plan": p, "sig": writer_sig(c, w)}
             row["status"] = "done"
+        for w in pool_writers:
+            from . import graph_beat
+            row = prog["nodes"][w["id"]]
+            row["status"] = "running"
+            try:
+                done[w["id"]] = await graph_beat.write(client, proj, c, w)
+            except ValueError as e:
+                row.update(status="error", error=str(e))
+                continue
+            row["status"] = "done"
         for w in clip_writers:
             row = prog["nodes"][w["id"]]
             row["status"] = "running"
@@ -1667,11 +2429,36 @@ async def run_llm(job: jobs.Job, pid: str, ids: list[str], model: Optional[str])
                 continue
             row["status"] = "done"
 
+        for sn in plays:   # «Сценарий»: «Написать сценарий» (action "write") or «Добавить в "Ранее"» ("recap")
+            row = prog["nodes"][sn["id"]]
+            row["status"] = "running"
+            try:
+                if action == "expand":   # «Развернуть в шоты»: the English of the places and actions first (cached per text)
+                    try:
+                        for nid, data in (await translate_screenplay(client, pid, sn["id"], random.randrange(100000))).items():
+                            done.setdefault(nid, {}).update(data)
+                    except Exception as e:   # no translation: the shots are still made, their prompts say «проверь перевод»
+                        row["note"] = i18n.L(f"перевод не вышел: {e}", f"the translation failed: {e}")
+                    row["status"] = "done"
+                    continue
+                for nid, data in (await write_screenplay(client, c, sn, action)).items():
+                    done.setdefault(nid, {}).update(data)
+            except ValueError as e:   # what the node lacks: said on it, the others go on
+                row.update(status="error", error=str(e))
+                continue
+            row["status"] = "done"
+
     def put(gg: dict) -> None:
         for nid, data in done.items():
             if (nn := node(gg, nid)):
                 nn["data"].update(data)
     update(pid, put)
+    if action == "expand":
+        for sn in plays:
+            try:
+                expand_screenplay(pid, sn["id"], edited)
+            except ValueError as e:
+                prog["nodes"][sn["id"]].update(status="error", error=str(e))
     prog["stage"] = "done"
     return {"done": list(done), "errors": {k: v.get("error") for k, v in prog["nodes"].items() if v.get("status") == "error"}}
 
@@ -1687,6 +2474,11 @@ def expand(pid: str, wid: str, edited: str = "ask") -> dict:
     from .planner import check
     if (w := node(load(pid), wid)) and w["type"] == "clip_writer":
         return expand_clip(pid, wid, edited)
+    if (w := node(load(pid), wid)) and w["type"] == "pool_writer":
+        from . import graph_beat
+        return graph_beat.expand(pid, wid, edited)
+    if w and w["type"] == "screenplay":
+        return expand_screenplay(pid, wid, edited)
 
     def go(g: dict) -> None:
         w = node(g, wid)
@@ -1706,10 +2498,11 @@ def expand(pid: str, wid: str, edited: str = "ask") -> dict:
             plan["ref_photo"] = bool(w["data"].get("ref_photo"))
             plan = check.plan(plan)
         x0, y0 = w["position"]["x"] + 380, w["position"]["y"]
-        mine = {(nn["data"].get("from"), nn["data"].get("scene"), nn["type"]): nn for nn in g["nodes"]}
+        detach_copies(g, wid, lambda nn: (nn["data"].get("scene"), nn["data"].get("hero"), nn["type"]))
+        mine = {(nn["data"].get("from"), nn["data"].get("scene"), nn["type"]): nn for nn in g["nodes"] if not nn["data"].get("detached")}
         face_of = {i: (h["id"], "image") for i, h in enumerate(heroes) if h["data"].get("photo")}
         portraits = {nn["data"]["hero"]: nn for nn in g["nodes"]
-                     if nn["type"] == "picture" and nn["data"].get("from") == wid and nn["data"].get("hero")}
+                     if nn["type"] == "picture" and nn["data"].get("from") == wid and not nn["data"].get("detached") and nn["data"].get("hero")}
         drawn_ids = set()
         for k, i in enumerate(drawn):   # one portrait per hero, kept by the hero's node; the prompt follows the look
             hid = heroes[i]["id"]
@@ -1751,7 +2544,7 @@ def expand(pid: str, wid: str, edited: str = "ask") -> dict:
                 for k in prompts.photo_people(plan, s):
                     if k in face_of:
                         g["edges"].append({"id": uuid.uuid4().hex[:8], "source": face_of[k][0], "sourceHandle": face_of[k][1], "target": sn["id"], "targetHandle": "faces"})
-        gone = {nn["id"] for nn in g["nodes"] if nn["data"].get("from") == wid and nn["id"] not in keep
+        gone = {nn["id"] for nn in g["nodes"] if nn["data"].get("from") == wid and not nn["data"].get("detached") and nn["id"] not in keep
                 and (nn["type"] in ("prompt", "scene") or (nn["type"] == "picture" and nn["data"].get("hero") and nn["id"] not in drawn_ids))}
         g["nodes"] = [nn for nn in g["nodes"] if nn["id"] not in gone]
         g["edges"] = [e for e in g["edges"] if e["source"] not in gone and e["target"] not in gone]
@@ -1895,7 +2688,7 @@ def _made(n: dict) -> str:
     if n["type"] == "prompt":
         return _sha(d.get("text"), d.get("lines") or [])
     if n["type"] == "scene":
-        return _sha(d.get("seconds"), d.get("model"), d.get("look"), d.get("items"))
+        return _sha(d.get("seconds"), d.get("model"), d.get("look"), d.get("items"), *([d["role"]] if d.get("role") else []))
     if n["type"] == "picture":
         return _sha(d.get("prompt"), d.get("model"), d.get("loras"))
     return ""
@@ -1928,14 +2721,15 @@ def expand_clip(pid: str, wid: str, edited: str = "ask") -> dict:
         c = Ctx(projects.load(pid), g)
         song_n, _, hero = clip_writer_inputs(c, w)
         v2 = int(w["data"].get("v") or 1) >= CLIP_V   # places, pre-rolls, the face check: a plan written since (CLIP_V)
-        mine = {(nn["data"].get("place") or nn["data"].get("scene"), nn["type"]): nn for nn in g["nodes"] if nn["data"].get("from") == wid}
+        detach_copies(g, wid, lambda nn: (nn["data"].get("place") or nn["data"].get("scene"), nn["data"].get("hero"), nn["type"]))
+        mine = {(nn["data"].get("place") or nn["data"].get("scene"), nn["type"]): nn for nn in g["nodes"] if nn["data"].get("from") == wid and not nn["data"].get("detached")}
         changed = [nn for nn in mine.values() if nn["data"].get("made") and _made(nn) != nn["data"]["made"]]
         if changed and edited == "ask":
             raise Edited([nn["data"].get("title") or type_title(nn["type"]) for nn in changed])
         hold = {nn["id"] for nn in changed} if edited == "keep" else set()
         kept.extend(nn["data"].get("title") or type_title(nn["type"]) for nn in changed if nn["id"] in hold)
         fixed = {x for x in (hero and hero["id"], song_n and song_n["id"]) if x}
-        own = lambda sid: sid in fixed or ((node(g, sid) or {}).get("data") or {}).get("from") == wid  # noqa: E731
+        own = lambda sid: sid in fixed or ((node(g, sid) or {}).get("data") or {}).get("from") == wid and not ((node(g, sid) or {}).get("data") or {}).get("detached")  # noqa: E731
 
         def new(t: str, x: float, y: float, data: dict) -> dict:
             nn = {"id": uuid.uuid4().hex[:8], "type": t, "position": {"x": x, "y": y}, "data": {"from": wid, **data}}
@@ -2059,7 +2853,7 @@ def expand_clip(pid: str, wid: str, edited: str = "ask") -> dict:
             wire(sn, "faces", [face] if face and prompts.uses_refs(plan, s2) else [])
             wire(sn, "voice", [(song_n["id"], "audio")] if song_n and card.track else [])
         # what the plan no longer has: gone - or, changed by the user and kept, theirs from now on
-        for nn in [x for x in g["nodes"] if x["data"].get("from") == wid and x["type"] in ("prompt", "scene", "picture") and x["id"] not in keep]:
+        for nn in [x for x in g["nodes"] if x["data"].get("from") == wid and not x["data"].get("detached") and x["type"] in ("prompt", "scene", "picture") and x["id"] not in keep]:
             if nn["id"] in hold:
                 for k in ("from", "scene", "made"):
                     nn["data"].pop(k, None)
@@ -2085,8 +2879,8 @@ def expand_clip(pid: str, wid: str, edited: str = "ask") -> dict:
             g["edges"].append({"id": uuid.uuid4().hex[:8], "source": sid, "sourceHandle": "clip", "target": mon["id"], "targetHandle": "clips"})
         # the user's clips keep their places around the clip's: an intro before it, an ending after it
         was = [x for x in mon["data"].get("order") or [] if x in ids]
-        first = next((k for k, x in enumerate(was) if node(g, x) and node(g, x)["data"].get("from") == wid), len(was))
-        users = [x for x in was if not ((node(g, x) or {}).get("data") or {}).get("from") == wid]
+        first = next((k for k, x in enumerate(was) if node(g, x) and node(g, x)["data"].get("from") == wid and not node(g, x)["data"].get("detached")), len(was))
+        users = [x for x in was if not (((node(g, x) or {}).get("data") or {}).get("from") == wid and not ((node(g, x) or {}).get("data") or {}).get("detached"))]
         mon["data"]["order"] = [x for x in was[:first] if x in users] + scenes + [x for x in users if x not in was[:first]]
 
     g = update(pid, go)

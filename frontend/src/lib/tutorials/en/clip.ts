@@ -16,5 +16,5 @@ export default scenario('clip', 'A clip from a song', `At the end you will have 
     step('Fit the cuts in the montage', `<p>Step «4 Montage» in the header. «Magnet» (the <kbd>M</kbd> key) makes clip trimming snap to the track's beats. «Cuts on beats» puts every cut on the beat before it; seamless chain joins are left alone. In a loud part a clip enters with a flash by default. Then «Build video».</p>`),
   ) +
   tip(`Don't reorder or speed up scenes in the montage without need: the track pieces are counted from the storyboard, and the lips will drift off the song. Trimming the ends and cuts on beats are safe.`) +
-  tip(`For «Singer's photo» the writer must see pictures: in «Models and settings» → «Writer» such a model is labeled «sees photos».`) +
+  tip(`For «Singer's photo» the writer must see pictures: in «Settings» → «Writer» such a model is labeled «sees photos».`) +
   `<p class="note">Next: ${see('clip', 'A clip from a song: reference')}, ${see('tut-edit', 'Montage step by step')}, ${see('shoot', 'Shoot to the track')}</p>`, GROUP_EN)

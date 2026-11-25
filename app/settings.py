@@ -1,7 +1,7 @@
-"""The «Модели и настройки» page's settings: data/settings.json on top of .env (phase 6).
+"""The settings of the «Модели» and «Настройки» pages: data/settings.json on top of .env (phase 6).
 
 Only these keys, each applied to the config module at once - everything reads config at call time, so no restart:
-the H3 weights by role, the writer's default model and context, the folders and the tools' paths. A folder or an
+the H3 weights by role, the writer's default model and context, the folders and the tools' paths, two speed switches (H3_TE_AHEAD, COMFY_ATTENTION). A folder or an
 engine path reaches the H3 worker at its next start (main.py stops an idle one). An empty path or folder list
 takes the key back to its .env value (or the built-in default).
 """
@@ -29,8 +29,11 @@ CONTEXTS = (8192, 16384, 32768)
 # the models' parameters (the page's «Параметры»): key -> (type, min, max)
 NUMBERS: dict[str, tuple[type, float, float]] = {"KREA_STEPS": (int, 1, 30), "FLUX2_STEPS": (int, 1, 20),
                                                  "FRAME_FACE_MIN": (float, 0.0, 1.0), "FRAME_TRIES": (int, 1, 6)}
-KEYS = (*NAMES, *FOLDERS, *PATHS, *COMMANDS, "LLM_CTX", *NUMBERS)
-ENGINE_KEYS = {"H3_MODEL_ROOTS", "LORA_DIRS", "KREA_LORA_DIRS", "LTX23_LORA_DIRS", "LTX25_LORA_DIRS", "WAN_LORA_DIRS", "FLUX2_LORA_DIRS", "H3_REF_DIR", "COMFY_DIR", "COMFY_PYTHON"}   # the worker reads them at start
+# two switches (H3_TE_AHEAD on the H3 card's «Параметры», COMFY_ATTENTION on the «Настройки» page): key -> (off, on) as config holds them. H3_TE_AHEAD is a bool, COMFY_ATTENTION
+# "sdpa" | "ck" (the page shows it as a switch: on = "ck"); the saved value wins over .env, which wins over the default
+SWITCHES: dict[str, tuple[Any, Any]] = {"H3_TE_AHEAD": (False, True), "COMFY_ATTENTION": ("sdpa", "ck")}
+KEYS = (*NAMES, *FOLDERS, *PATHS, *COMMANDS, "LLM_CTX", *NUMBERS, *SWITCHES)
+ENGINE_KEYS = {"H3_MODEL_ROOTS", "LORA_DIRS", "KREA_LORA_DIRS", "LTX23_LORA_DIRS", "LTX25_LORA_DIRS", "WAN_LORA_DIRS", "FLUX2_LORA_DIRS", "H3_REF_DIR", "COMFY_DIR", "COMFY_PYTHON", "COMFY_ATTENTION"}   # the worker reads them at start
 DEFAULTS = {k: getattr(config, k) for k in KEYS}   # .env or built-in, before settings.json
 
 
@@ -45,6 +48,13 @@ def _value(key: str, v: Any) -> Any:
         if not s:
             raise ValueError(i18n.L("Нужен путь", "A path is needed"))
         return Path(s) if key in PATHS else s
+    if key in SWITCHES:
+        off, on = SWITCHES[key]
+        if isinstance(v, bool):
+            return on if v else off
+        if isinstance(v, str) and v.strip().lower() in (str(off).lower(), str(on).lower()):
+            return on if v.strip().lower() == str(on).lower() else off
+        raise ValueError(i18n.L(f"{key}: включено или выключено", f"{key}: on or off"))
     if key == "LLM_CTX":
         if int(v) not in CONTEXTS:
             raise ValueError(i18n.L("Контекст: ", "Context: ") + ", ".join(map(str, CONTEXTS)))
@@ -97,7 +107,7 @@ def update(patch: dict) -> list[str]:
     for k, v in patch.items():
         if k not in KEYS:
             raise ValueError(i18n.L(f"Неизвестная настройка: {k}", f"Unknown setting: {k}"))
-        if (k in FOLDERS or k in PATHS or k in COMMANDS or k in NUMBERS) and _empty(v):   # empty: back to .env or the default
+        if (k in FOLDERS or k in PATHS or k in COMMANDS or k in NUMBERS or k in SWITCHES) and _empty(v):   # empty: back to .env or the default
             reset.append(k)
         else:
             clean[k] = _value(k, v)

@@ -1,0 +1,121 @@
+{
+ "name": "Cartoon series",
+ "about": "A cartoon series: a bible with a 3D cartoon look, a girl and her cat, a Screenplay with a sample — a shot per line.",
+ "order": 18,
+ "nodes": [
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -420
+   },
+   "data": {
+    "text": "Cartoon series: an episode from a screenplay.\n\n1. Series is the bible: title, look, world, characters, «Previously». The same node goes into every episode (copy the graph); «Add to Previously» on the Screenplay appends the episode's summary.\n2. Heroes: the looks are filled in; your own portrait: «Hero photo» → «Describe from photo». With a photo every shot keeps the face (Ref2VA).\n3. Screenplay: text as «SCENE 1. Place, time.» / «NAME (how): line» / «— action» (the lines are spoken as written). Edit it by hand or press «Write the screenplay» (from the Idea and the Series).\n4. «Expand into shots»: a Prompt and a Scene per line and action (one speaks, the other listens), then a Montage and an Output.\n5. «Export .srt»: the lines' subtitles, timed by the shot lengths."
+   }
+  },
+  {
+   "id": "sv",
+   "type": "series",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Masha and Murzik",
+    "look": "cartoon3d",
+    "style": "Bright warm colours, soft shapes, expressive faces",
+    "world": "A cosy city flat: a kitchen with yellow curtains and a big fridge.",
+    "characters": "Masha is a cheerful owner who gets angry fast and calms down fast. Murzik is a sly ginger cat who denies everything.",
+    "recap": ""
+   }
+  },
+  {
+   "id": "idea",
+   "type": "idea",
+   "position": {
+    "x": 0,
+    "y": 420
+   },
+   "data": {
+    "title": "Episode idea",
+    "text": "In the morning Masha finds the cheese gone from the fridge, and Murzik pretends he has nothing to do with it."
+   }
+  },
+  {
+   "id": "h1",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 700
+   },
+   "data": {
+    "title": "Masha",
+    "gender": "female",
+    "age": 28,
+    "en": "a 28-year-old cartoon woman with a thick red braid, big green eyes and rosy cheeks",
+    "outfit_en": "a yellow apron over a blue sweater",
+    "ru": "28 лет, толстая рыжая коса, большие зелёные глаза, румяные щёки. Жёлтый фартук поверх синего свитера."
+   }
+  },
+  {
+   "id": "h2",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 1000
+   },
+   "data": {
+    "title": "Murzik",
+    "gender": "male",
+    "kind": "animal",
+    "en": "a fluffy ginger cartoon cat with white paws, big round amber eyes and a very expressive face",
+    "outfit_en": "a small red bow tie",
+    "ru": "Пушистый рыжий кот с белыми лапками, большие круглые янтарные глаза. Маленькая красная бабочка."
+   }
+  },
+  {
+   "id": "sp",
+   "type": "screenplay",
+   "position": {
+    "x": 420,
+    "y": 300
+   },
+   "data": {
+    "title": "Screenplay",
+    "seconds": 30,
+    "text": "SCENE 1. Kitchen, morning.\nMASHA (angrily): Did you eat all the cheese again?\nMURZIK (smiling): It wasn't me.\n— Murzik hides his tail behind his back.\nMASHA (calmly): Then where did the crumbs on your whiskers come from?\nMURZIK (softly): It's... from a cracker."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "sv-text-sp-series",
+   "source": "sv",
+   "sourceHandle": "text",
+   "target": "sp",
+   "targetHandle": "series"
+  },
+  {
+   "id": "idea-text-sp-idea",
+   "source": "idea",
+   "sourceHandle": "text",
+   "target": "sp",
+   "targetHandle": "idea"
+  },
+  {
+   "id": "h1-look-sp-cast",
+   "source": "h1",
+   "sourceHandle": "look",
+   "target": "sp",
+   "targetHandle": "cast"
+  },
+  {
+   "id": "h2-look-sp-cast",
+   "source": "h2",
+   "sourceHandle": "look",
+   "target": "sp",
+   "targetHandle": "cast"
+  }
+ ]
+}

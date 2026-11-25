@@ -661,21 +661,26 @@ class Client:
             self.seconds += time.time() - t0
             choice = d["choices"][0]
             text = choice["message"].get("content") or ""
+            thought = choice["message"].get("reasoning_content") or thought
             try:
                 data = json.loads(text)
                 break
             except json.JSONDecodeError as e:
-                why = (i18n.L("упёрлась в лимит ответа", "hit the answer limit") if choice.get("finish_reason") == "length"
-                       else i18n.L(f"ответила не JSON ({e})", f"answered not in JSON ({e})"))
+                cut = choice.get("finish_reason") == "length"
+                if cut and not text.strip() and thought.strip():   # a thinking model spent the whole limit on its reasoning
+                    why = i18n.L("потратила весь лимит ответа на размышления", "spent the whole answer limit on its reasoning")
+                    start = i18n.L(f"Начало размышлений: {thought.strip()[:300]}", f"The reasoning's start: {thought.strip()[:300]}")
+                else:
+                    why = (i18n.L("упёрлась в лимит ответа", "hit the answer limit") if cut
+                           else i18n.L(f"ответила не JSON ({e})", f"answered not in JSON ({e})"))
+                    start = i18n.L(f"Начало ответа: {text[:300]}", f"The answer's start: {text[:300]}")
                 if attempt == 2:
-                    raise LLMError(i18n.L(f"{self.model.name} дважды оборвала ответ: {why}. Попробуйте ещё раз или другую модель. "
-                                          f"Начало ответа: {text[:300]}",
-                                          f"{self.model.name} cut its answer short twice: {why}. Try again or another model. "
-                                          f"The answer's start: {text[:300]}")) from e
+                    raise LLMError(i18n.L(f"{self.model.name} дважды оборвала ответ: {why}. Попробуйте ещё раз или другую модель. {start}",
+                                          f"{self.model.name} cut its answer short twice: {why}. Try again or another model. {start}")) from e
                 self.retries += 1
                 body = {**body, "seed": seed + 7919}
         cache.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-        if thought.strip():   # beside the answer, not in it: the cached answer stays what it was
+        if thoughts and thought.strip():   # a job's thinking, beside the answer, not in it: the cached answer stays what it was
             try:
                 _think_file(cache).write_text(thought.strip()[-THINK_TAIL:], encoding="utf-8")
             except OSError:

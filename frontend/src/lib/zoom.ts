@@ -29,10 +29,11 @@ export function projectPics(): Pic[] {
   return out.filter((x, k) => out.findIndex((y) => y.src === x.src) === k)
 }
 
-// a picture big: among the project's pictures when it is one of them, else alone
-export function openZoom(src: string, label = '') {
+// a picture big: among the project's pictures when it is one of them, else alone; `pics` - another list to go through
+// (the graph's pictures, lib/graphDoc.graphPics)
+export function openZoom(src: string, label = '', pics?: Pic[]) {
   const path = (u: string) => { try { return new URL(u, location.href).pathname } catch { return u } }
-  const list = projectPics()
+  const list = pics || projectPics()
   const k = list.findIndex((x) => path(x.src) === path(src))
   zoom.list = k >= 0 ? list : [{ src, label }, ...list]
   zoom.i = k >= 0 ? k : 0

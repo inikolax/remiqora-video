@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from ..planner import prompts
+from ..planner import beat, prompts
 from ..planner.grid import SCENE_SECONDS, grid
 from .. import i18n, looks
 from . import client, describe
@@ -1270,3 +1270,217 @@ async def write_lines(plan: dict, indices: list[int], seed: Optional[int] = None
         plan["writer"] = {"model": llm.model.name, "seconds": round(time.time() - t0, 1), "calls": llm.calls, "cached": llm.cached,
                           **({"lines_failed": failed} if failed else {})}
     return plan
+
+
+# ---------- the beat clip's shot pool (the code side is planner/beat.py) ----------
+POOL_GENRES = {"techno": "hard techno: concrete, lasers, strobes, machines", "dnb": "drum and bass: speed, city lights, motion blur",
+               "hardstyle": "hardstyle: a huge festival stage, pyro, crowds", "pop": "pop: bright, clean, playful light"}
+POOL_RULES = """You plan a POOL of {n} short standalone shots for a music video cut to the beat (every shot is a 3-second picture that comes alive, no timeline). Answer with place_en, light_en and shots.
+place_en: ONE place for the whole video, one short phrase. light_en: the colours of its light, one short phrase, no place in it, naming the colours in plain words ("molten orange and white sparks", "icy blue and white"). If the message gives Colours, use exactly those; if not, CHOOSE the colours that fit the idea (fire is orange, ice is blue) - not neon pink or purple by default.
+Each shot: title (1-3 English words with underscores, e.g. "laser_fan"), framing (macro, close, medium or wide), role, picture_en (the still, 20-45 words), motion_en (what moves, then the camera, 10-25 words).
+Roles - at least {hero_min} "hero" (the hero in a shot), at least {atmos_min} "atmos" (the place, light, crowd, machines - NO hero), exactly one "close" (an extreme close-up of the hero's head: the mask), exactly one "impact" (the sharpest, strongest shot of the hero), exactly one "riser" (a point-of-view flight forward through a tunnel).
+Rules:
+- In every picture_en with the hero write the marker [HERO] once, where the hero is named, and describe nothing about the hero's look: the marker is replaced by the exact words. In shots without the hero never mention a person.
+- close and macro shots show ONE thing filling the frame (the mask, a speaker cone, an eye, water drops, a hand on a knob) and name NO place: no room, street, stage, tunnel or crowd.
+- A person does ONE concrete, moderate movement - never "hard", "wild" or "frantic". The energy comes from light, smoke, sparks, water, fabric and the camera.
+- Never any text, signs, letters, logos, numbers or screens with writing in a picture.
+- Vary the framing; mix macros, wides and mediums. motion_en: movement first, then the camera ("Static camera", "Slow push-in", "Fast forward flight")."""
+
+
+# the hero from the user's own words (the home's «Опиши героя»): added to the rules and the schema only when there are words
+POOL_HERO_RULES = """
+The user described the hero in their own words (any language). Also answer hero_en and head_en:
+hero_en: the hero's LOOK in English, 15-35 words, only what can be seen: clothes, mask or helmet, colours, props. No place, no action, no body or beauty words, never "feminine", "beautiful" or "sexy". Follow the user's words, add nothing of your own.
+head_en: the same hero as an extreme close-up of the head only, 8-20 words: the mask, helmet, hood or head, its colours and materials.{hidden}"""
+POOL_HERO_HIDDEN = " The hero's face is HIDDEN: a mask, visor, hood or shadow covers it; never write eyes, lips, smile, nose or a face."
+POOL_HERO_SHOWN = " The face may be seen; describe the hair and the clothes, not the beauty."
+
+
+def pool_schema(n: int, hero: bool = False) -> dict:
+    shot = {"type": "object", "properties": {
+        "title": {"type": "string", "maxLength": 40}, "framing": {"type": "string", "enum": list(beat.FRAMINGS)},
+        "role": {"type": "string", "enum": list(beat.ROLES)}, "picture_en": {"type": "string", "maxLength": 420},
+        "motion_en": {"type": "string", "maxLength": 260}},
+        "required": ["title", "framing", "role", "picture_en", "motion_en"], "additionalProperties": False}
+    props = {"place_en": {"type": "string", "maxLength": 160}, "light_en": {"type": "string", "maxLength": 160},
+             "shots": {"type": "array", "items": shot, "minItems": 6, "maxItems": n + 4}}
+    if hero:
+        props = {"hero_en": {"type": "string", "maxLength": 320}, "head_en": {"type": "string", "maxLength": 200}, **props}
+    return {"type": "object", "properties": props, "required": [*props], "additionalProperties": False}
+
+
+class Pool(list):
+    """write_pool's answer: the shots (a list of {title, framing, role, picture_en, motion_en}) and what goes with them -
+    `palette` {a, b, tint} (BGR), `place_en`, `light_en`, `style` / `mstyle` (the place's and the place-free style
+    prompts, planner/beat.styles), `repaired` (the code had to fill or reassign roles), `model`, `seconds`."""
+    palette: dict
+    palette_auto: bool = False   # the palette was derived from light_en (the look was «auto»), not taken from a look
+    place_en: str = ""
+    light_en: str = ""
+    style: str = ""
+    mstyle: str = ""
+    repaired: bool = False
+    model: str = ""
+    seconds: float = 0.0
+    hero_en: str = ""      # the hero's line the pool was written with (set when the user described the hero: write_pool's hero_text)
+    head_en: str = ""
+    hero_fallback: bool = False   # the writer's hero line was empty or banned: the preset's / generic line stands
+
+
+def pool_brief(idea: str, hero_line: str, palette: Optional[dict], chorus_words: str, genre: str, hero_text: str = "", base_line: str = "") -> str:
+    """The user message of write_pool: short, so that a 24B local model answers a 16-shot pool in a minute or two."""
+    chorus = " / ".join(dict.fromkeys(x.strip() for x in re.split(r"[\n/]+", chorus_words or "") if x.strip()))[:220]
+    return "\n".join(x for x in (
+        f"Idea: {idea.strip()}", f"Genre: {POOL_GENRES.get(genre, genre or POOL_GENRES['techno'])}",
+        f"Colours: {beat.palette_words(palette)}" if palette else "",   # no palette (the look is «auto»): the writer picks light_en from the idea
+        f"The hero, in the user's words (the marker [HERO] stands for them): {hero_text.strip()}" if hero_text.strip() else "",
+        f"The hero's base look, keep its mask / helmet / hood exactly and add the user's details to it: {base_line}" if hero_text.strip() and base_line else "",
+        "" if hero_text.strip() else f"The hero (the marker [HERO] stands for): {hero_line}",
+        f"The chorus (for mood only, never write it): {chorus}" if chorus else "") if x)
+
+
+def _pool_reply_ok(d) -> bool:
+    return isinstance(d, dict) and isinstance(d.get("shots"), list) and sum(isinstance(x, dict) for x in d["shots"]) >= 4
+
+
+async def write_pool(idea: str, hero_line: str, look_or_palette=None, chorus_words: str = "", genre: str = "techno", n: int = 16,
+                     lang: Optional[str] = None, model_id: Optional[str] = None, seed: int = 1, head_line: str = "",
+                     hero_text: str = "", hero_base: str = "", face_hidden: bool = True, hero_keep: tuple = ()) -> Pool:
+    """The beat clip's pool (planner/beat.py is the code that makes it right): `n` shots {title, framing, role,
+    picture_en, motion_en}. One compact call (a second one when the first answer is unusable); then beat.fix_pool fills the
+    roles, puts the hero's words in, takes the place out of the close-ups. The palette comes from the look (looks.LOOKS
+    tint) or is the one given. Only by the user's button (the writer's actions are explicit). `hero_line`: the faceless
+    preset's line (hero.faceless_line), `head_line`: its close-up (hero.faceless_head).
+    `hero_text`: the user's own words about the hero (any language) - the writer then also gives `hero_en` / `head_en` (the
+    hero's look and its head close-up in English) and beat.fix_hero checks them in code (empty or banned: `hero_line` /
+    `head_line` stand, which are the preset's or the generic figure's; face hidden: no face words). `hero_base`: the preset's
+    line when the words are details of a preset (its mask stays; `hero_keep` are the words one of which must stay).
+    The result's hero_en / head_en are the lines [HERO] and the close-ups carry."""
+    client.use_lang(lang or i18n.text_name())   # the language of the titles (picture and motion stay English)
+    auto = look_or_palette in (None, "", "auto")   # no look picked: no colours for the writer, the palette comes from its light_en
+    palette = None if auto else beat.palette_of(look_or_palette)
+    hero_text = (hero_text or "").strip()
+    system = POOL_RULES.format(n=n, hero_min=beat.MIN_HERO, atmos_min=beat.MIN_ATMOS)
+    if hero_text:
+        system += POOL_HERO_RULES.format(hidden=POOL_HERO_HIDDEN if face_hidden else POOL_HERO_SHOWN)
+    user = pool_brief(idea, hero_line, palette, chorus_words, genre, hero_text, hero_base)
+    d: dict = {}
+    t0 = time.time()
+    async with client.session(model_id) as llm:
+        for attempt in range(2):
+            try:
+                d = await llm.chat_json(system, user, pool_schema(n, bool(hero_text)), temperature=0.7 if attempt == 0 else 0.4, seed=seed + attempt,
+                                        max_tokens=3600, step="script")
+            except client.LLMError:
+                if attempt:
+                    raise
+                d = {}
+            if _pool_reply_ok(d):
+                break
+        name = llm.model.name
+    raw = d.get("shots") if isinstance(d, dict) else []
+    place, light = str((d or {}).get("place_en") or "").strip(), str((d or {}).get("light_en") or "").strip()
+    if beat._PLACE.search(light):   # the light carries no place: it goes into the place-free style
+        light = beat.strip_place(light)
+    head_line = head_line or hero_line
+    fixed = None
+    if hero_text:   # the user's words -> the hero's look: checked in code, the fallback when the writer's line is no good
+        fixed = beat.fix_hero((d or {}).get("hero_en"), (d or {}).get("head_en"), hero_line, head_line, face_hidden, tuple(hero_keep))
+        hero_line, head_line = fixed["hero"], fixed["head"]
+    shots = beat.fix_pool(raw or [], hero_line, head_line, place, light, n)
+    pool = Pool(shots)
+    pool.palette_auto = auto
+    if auto:   # the colour words of the writer's light (night_neon when it names none)
+        palette = beat.palette_from_light(light) or beat.palette_of("night_neon")
+    pool.palette, pool.place_en, pool.light_en = palette, place, light
+    pool.style, pool.mstyle = beat.styles(place, light)
+    pool.repaired = [(s["role"], s["framing"]) for s in beat._normalise(raw or [], hero_line, head_line)] != [(s["role"], s["framing"]) for s in shots]
+    pool.model = name
+    if fixed:
+        pool.hero_en, pool.head_en, pool.hero_fallback = hero_line, head_line, fixed["fallback_hero"]
+    pool.seconds = round(time.time() - t0, 1)
+    return pool
+
+
+# ---------- the screenplay («Сценарий» node: «Написать сценарий», «Добавить в "Ранее"») ----------
+SCREENPLAY_SYSTEM = """You write a short screenplay for an animated or live-action mini-series episode, in Russian. It is shot one line at a time: every line of dialogue and every action becomes its own shot of 3-10 seconds, and the video model speaks the line itself with lip movement.
+
+Rules:
+- The scenes: 1-4, each in one place (place: a short Russian phrase with the time of day, e.g. "Берег моря, закат"; place_en: the same place in English, visual, 6-20 words).
+- items, in order: who = 0 for an action (one visible thing a person does, one short Russian sentence, no inner thoughts; en: the same action in English, present tense), who = k for a line of the k-th character of the list.
+- Lines are short, natural spoken Russian: at most 10 words (about 4 seconds), most are 3-7 words. Two people may answer each other; never two people in one line. No names of the characters inside the line, no stage directions inside it.
+- how: the manner of the line, one of the given words; "plain" when nothing special. Use it only where it matters.
+- Only the listed characters speak. Keep their way of speaking the same in every scene and consistent with the series bible.
+- The episode is about the number of items asked for; a story with a beginning, a turn and an end, not a list of events.
+- When the series bible has "Ранее" (what happened before), continue from it; never retell it."""
+
+
+def _screenplay_schema(n_cast: int) -> dict:
+    item = {"type": "object", "properties": {
+        "who": {"type": "integer", "minimum": 0, "maximum": max(1, n_cast)},
+        "text": {"type": "string", "maxLength": 140},
+        "how": {"type": "string", "enum": HOW_LLM},
+        "en": {"type": "string", "maxLength": 200}}, "required": ["who", "text", "how", "en"]}
+    scene = {"type": "object", "properties": {
+        "place": {"type": "string", "maxLength": 80}, "place_en": {"type": "string", "maxLength": 200},
+        "items": {"type": "array", "maxItems": 14, "items": item}}, "required": ["place", "place_en", "items"]}
+    return {"type": "object", "properties": {"title": {"type": "string", "maxLength": 80},
+                                             "scenes": {"type": "array", "minItems": 1, "maxItems": 4, "items": scene}},
+            "required": ["title", "scenes"]}
+
+
+MAX_LINE_WORDS = 12
+
+
+async def screenplay_for(llm, idea: str, cast: list[dict], series: str, seconds: int, seed: int) -> dict:
+    """«Написать сценарий»: the idea, the characters' looks (cast: [{name, gender, look}]) and the series bible -> the
+    writer's JSON {title, scenes: [{place, place_en, items: [{who, text, how, en}]}]}; screenplay.render makes the
+    text of it. Lines are cut to MAX_LINE_WORDS words."""
+    client.use_lang(i18n.text_name())   # the texts' language (i18n)
+    who = "\n".join(f"{i}: {c['name']} ({c.get('gender') or '?'}) - {(c.get('look') or '')[:200]}" for i, c in enumerate(cast, 1)) or "(none)"
+    items = max(4, round(seconds / 4.5))
+    user = (f"IDEA: {idea}\n\nCHARACTERS (number: name, gender, look):\n{who}\n\n"
+            + (f"SERIES BIBLE:\n{series}\n\n" if series.strip() else "")
+            + f"Write an episode of about {items} items ({seconds} seconds of film).\nManner words for how: {', '.join(HOW_LLM)}.")
+    d = await llm.chat_json(SCREENPLAY_SYSTEM, user, _screenplay_schema(len(cast)), temperature=0.8, seed=seed,
+                            max_tokens=min(3000 + 250 * max(0, items - 8), 9000), step="script")   # a thinking model reasons first
+    for sc in d.get("scenes") or []:
+        for it in sc.get("items") or []:
+            words = str(it.get("text", "")).split()
+            if int(it.get("who") or 0) and len(words) > MAX_LINE_WORDS:
+                it["text"] = " ".join(words[:MAX_LINE_WORDS]).rstrip(",;:")
+    return d
+
+
+RECAP_SYSTEM = """You keep the series bible of a mini-series. Given the screenplay of the episode just written and the "Ранее" so far, write what the next episode's writer must remember about THIS episode: one or two short Russian sentences, past tense, plain facts (who did what, what changed between the characters). No title, no quotes, no list."""
+
+
+async def recap_for(llm, screenplay: str, series: str, seed: int) -> str:
+    """«Добавить в "Ранее"»: one or two sentences of this episode for the series bible."""
+    client.use_lang(i18n.text_name())   # the texts' language (i18n)
+    user = (f"SERIES BIBLE SO FAR:\n{series}\n\n" if series.strip() else "") + f"THE EPISODE'S SCREENPLAY:\n{screenplay}"
+    d = await llm.chat_json(RECAP_SYSTEM, user, {"type": "object", "properties": {"recap": {"type": "string", "maxLength": 400}},
+                                                 "required": ["recap"]}, temperature=0.5, seed=seed, max_tokens=1500, step="script")   # room for a thinking model
+    return str(d.get("recap", "")).strip()
+
+
+TRANSLATE_SP_SYSTEM = """You translate short pieces of a screenplay into English for a video model's prompt. Each item has a kind:
+- place: a filming location with the time of day -> a visual English phrase, 6-20 words, no names of films or people;
+- action: what the characters do -> one plain English sentence in the present tense, the characters named as they are in the text (they, he, she, the man, the woman) - nothing added;
+- manner: how a line is spoken -> one or two English words;
+- style: the look of the film -> a short English phrase of the visual style.
+Keep the meaning, add nothing, no quotes. Answer with the translations in the same order, one for every item."""
+
+
+async def translate_screenplay(llm, items: list[tuple[str, str]], seed: int = 1) -> dict[str, str]:
+    """Places, actions, free remarks and the series' style of a screenplay written in Russian -> English for the H3
+    prompt. `items`: [(kind, text)]; -> {text: English} (an item the model did not answer is left out)."""
+    if not items:
+        return {}
+    user = "\n".join(f"{i}. [{k}] {t}" for i, (k, t) in enumerate(items, 1))
+    d = await llm.chat_json(TRANSLATE_SP_SYSTEM, user,
+                            {"type": "object", "properties": {"en": {"type": "array", "items": {"type": "string"}, "minItems": len(items), "maxItems": len(items)}},
+                             "required": ["en"], "additionalProperties": False},
+                            temperature=0.2, seed=seed, max_tokens=1500 + 120 * len(items), step="translate")
+    en = [str(x).strip() for x in d.get("en") or []]
+    return {t: e for (_, t), e in zip(items, en) if e and not re.search(r"[А-Яа-яЁё]", e)}

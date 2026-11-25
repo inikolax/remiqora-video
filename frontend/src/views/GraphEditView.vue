@@ -3,7 +3,7 @@
 // to an input of the same type, Delete removes what is selected, a group drags the nodes inside it. The right panel:
 // the selected node (NodeInspector), else the project - quality, «Снять всё», the LLM nodes to rewrite, cleaning,
 // «Собрать раскадровку». The server says what each node is; a running job's progress lies on top.
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { VueFlow, useVueFlow, type Connection, type NodeDragEvent, type NodeMouseEvent } from '@vue-flow/core'
@@ -25,8 +25,8 @@ import { api, post } from '../lib/api'
 import { S, banner, onJobEnd, pollJobs } from '../lib/store'
 import { fitLink, nodeWhat, whoName } from '../lib/nodeHelp'
 import { arrange } from '../lib/graphArrange'
-import { ADD_MENU, GE, ICON, LINES, PORT_COLOR, PORT_Y, PORT_NAME, WHO_COLOR, WHO_NAME, addNode, canLink, copy, fileUrl, flush, insert, insideGroup, link, live, loadState, nodeOf, openGraph,
-  paste, portsOf, redo, reloadDoc, removeNodes, runLlm, runTo, tOf, touch, typeTitle, undo, withGroups } from '../lib/graphDoc'
+import { ADD_MENU, ADD_NEXT, ADD_PREV, GE, ICON, LINES, PORT_COLOR, PORT_Y, PORT_NAME, WHO_COLOR, WHO_NAME, addNode, canLink, copy, fileUrl, flush, insert, insideGroup, link, live, loadState, nodeOf, openGraph,
+  canMeet, paste, portsOf, portTypes, redo, reloadDoc, removeNodes, runLlm, runTo, syncRev, tOf, touch, typeTitle, undo, withGroups } from '../lib/graphDoc'
 import { QL } from '../lib/consts'
 import { mins, mmss } from '../lib/format'
 
@@ -116,12 +116,72 @@ function centre() {
   const v = viewport.value, dm = dimensions.value
   return { x: (-v.x + dm.width / 2) / v.zoom - 120, y: (-v.y + dm.height / 2) / v.zoom - 80 }
 }
+// the add menu: the search, the current item (keys / mouse), the last added types
+const RECENT_KEY = 'rv.graph.addRecent'
+const readRecent = (): string[] => { try { const v = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [] } catch { return [] } }
+const recent = ref<string[]>(readRecent())
+const addQ = ref('')
+const addCur = ref('')
+const addFind = ref<HTMLInputElement | null>(null)
+const NOTE_TYPES = ['group', 'note']
+const selNode = computed(() => (selId.value ? nodeOf(selId.value) : null))
+const selType = computed(() => (selNode.value && !NOTE_TYPES.includes(tOf(selNode.value)) ? tOf(selNode.value) : ''))
+const selName = computed(() => (selNode.value ? (selNode.value.data as any).title || typeTitle(tOf(selNode.value)) : ''))
+const addNext = computed(() => (ADD_NEXT[selType.value] || []).filter(known))
+const addPrev = computed(() => (ADD_PREV[selType.value] || []).filter(known))
+const addRecent = computed(() => recent.value.filter(known).slice(0, 4))
+const addCols = computed(() => ADD_MENU.filter(([g]) => g !== 'canvas').map(([g, ts]) => [g, ts.filter(known)] as [string, string[]]))
+// a search hit: in the title or the description; the title's hits first
+const addHits = computed(() => {
+  const q = addQ.value.trim().toLowerCase()
+  if (!q) return []
+  const all = ADD_MENU.flatMap(([, ts]) => ts).filter(known)
+  const inTitle = (ty: string) => typeTitle(ty).toLowerCase().includes(q)
+  return all.filter((ty) => inTitle(ty) || nodeWhat(ty).toLowerCase().includes(q)).sort((a, b) => Number(inTitle(b)) - Number(inTitle(a)))
+})
+const addNav = computed(() => (addQ.value.trim() ? addHits.value : addCols.value.flatMap(([, ts]) => ts)))
+// the title cut into [before, hit, after] for the highlight
+function titleParts(ty: string): [string, string, string] {
+  const s = typeTitle(ty), q = addQ.value.trim().toLowerCase(), i = q ? s.toLowerCase().indexOf(q) : -1
+  return i < 0 ? [s, '', ''] : [s.slice(0, i), s.slice(i, i + q.length), s.slice(i + q.length)]
+}
+// dimmed: cannot link to the selected node at all (still clickable)
+const addOff = (ty: string) => !!selType.value && !canMeet(selType.value, ty)
+const portList = (ty: string, dir: 'in' | 'out') => portTypes(ty, dir).map((p) => PORT_NAME[p] || p).join(', ') || '—'
+function addOpened() {
+  addQ.value = ''
+  addCur.value = (selType.value && addNext.value[0]) || addNav.value[0] || ''
+  nextTick(() => addFind.value?.focus())
+}
+function addKey(e: KeyboardEvent) {
+  const nav = addNav.value
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); menu.value = ''; return }
+  if (e.key === 'Enter') { e.preventDefault(); if (addCur.value) add(addCur.value); return }
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+  e.preventDefault()
+  if (!nav.length) return
+  const i = nav.indexOf(addCur.value), j = e.key === 'ArrowDown' ? Math.min(nav.length - 1, i + 1) : Math.max(0, i - 1)
+  addCur.value = nav[i < 0 ? 0 : j]
+  nextTick(() => document.querySelector('.add-pop .add-it.cur')?.scrollIntoView({ block: 'nearest' }))
+}
+// the About strip follows the mouse
+function onAddHover(e: MouseEvent) {
+  const ty = (e.target as Element).closest?.('[data-ty]')?.getAttribute('data-ty')
+  if (ty && ty !== addCur.value) addCur.value = ty
+}
+function onAddSearch() { addCur.value = addNav.value[0] || '' }
+watch(menu, (m) => { if (m === 'add') addOpened() })
+
 // a new node: next to the selected one and linked to it when their ports fit (Идея selected + Сценарист = linked),
-// else in the middle of the screen
-function add(ty: string) {
+// else in the middle of the screen. `before`: it goes to the left and feeds the selected one
+function add(ty: string, before = false) {
   menu.value = ''
+  if (!NOTE_TYPES.includes(ty)) {
+    recent.value = [ty, ...recent.value.filter((x) => x !== ty)].slice(0, 4)
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent.value)) } catch { /* private mode */ }
+  }
   const s = GE.sel ? nodeOf(GE.sel) : null
-  const fit = s && !['group', 'note'].includes(tOf(s)) && !['group', 'note'].includes(ty) ? fitLink(s.id, ty) : null
+  const fit = s && !['group', 'note'].includes(tOf(s)) && !['group', 'note'].includes(ty) ? fitLink(s.id, ty, before) : null
   if (!s || !fit) { const c = centre(); addNode(ty, c.x, c.y); return }
   const n = addNode(ty, s.position.x + (fit.after ? 320 : -320), s.position.y)
   link({ source: fit.source || n.id, sourceHandle: fit.sourceHandle, target: fit.target || n.id, targetHandle: fit.targetHandle })
@@ -258,7 +318,7 @@ onMounted(async () => {
   try { await openGraph(props.id) } catch (e) { banner((e as Error).message); router.push('/'); return }
   if (GE.proj?.type !== 'graph') { router.replace(`/p/${props.id}`); return }
   loaded.value = true
-  off = onJobEnd((j) => { if (j.params?.project === props.id) (j.kind === 'graph-llm' ? reloadDoc() : loadState()) })
+  off = onJobEnd((j) => { if (j.params?.project === props.id) (j.kind === 'graph-llm' ? reloadDoc() : loadState().then(syncRev)) })
   addEventListener('keydown', onKey)
   addEventListener('beforeunload', flush)
   document.addEventListener('click', away)
@@ -281,12 +341,43 @@ onUnmounted(() => { off?.(); flush(); removeEventListener('keydown', onKey); rem
         <router-link class="ghost" to="/"><Icon name="back" />{{ t('graph.videos') }}</router-link>
         <span class="sep" />
         <div class="tool-menu"><button type="button" class="ghost" :aria-expanded="menu === 'add'" @click="menu = menu === 'add' ? '' : 'add'"><Icon name="plus" />{{ t('graph.add') }}</button>
-          <div v-if="menu === 'add'" class="tm-pop wide add-pop">
-            <span class="tm-hint">{{ GE.sel && nodeOf(GE.sel) ? t('graph.addNear', { name: (nodeOf(GE.sel)!.data as any).title || typeTitle(tOf(nodeOf(GE.sel)!)) }) : t('graph.addHint') }}</span>
-            <template v-for="[g, ts] in ADD_MENU" :key="g"><span class="tm-group">{{ t(`graph.addGroup.${g}`) }}</span>
-              <button v-for="ty in ts.filter(known)" :key="ty" type="button" class="tm-node" @click="add(ty)">
-                <span class="tm-ic" :style="{ color: WHO_COLOR[GE.types[ty]?.who || 'none'] }"><Icon :name="ICON[ty] || 'layers'" :size="18" /></span>
-                <span class="tm-tx"><b>{{ typeTitle(ty) }}</b><small>{{ nodeWhat(ty) }}</small></span></button></template>
+          <div v-if="menu === 'add'" class="tm-pop add-pop" role="dialog" :aria-label="t('graph.addDialog')" @mouseover="onAddHover">
+            <label class="add-find"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+              <input ref="addFind" v-model="addQ" type="text" autocomplete="off" :placeholder="t('graph.addSearch')" :aria-label="t('graph.addSearchLabel')" @input="onAddSearch" @keydown="addKey"><kbd>Esc</kbd></label>
+            <div v-if="selType && !addQ.trim() && (addNext.length || addPrev.length)" class="add-fit">
+              <div class="add-fit-h">{{ t('graph.addLinksTo', { name: selName }) }}</div>
+              <div v-if="addNext.length" class="add-fit-row"><span class="add-dir">{{ t('graph.addAfter') }}</span>
+                <button v-for="ty in addNext" :key="ty" type="button" class="add-pill" :class="{ cur: addCur === ty }" :data-ty="ty" @click="add(ty)">
+                  <span class="add-ic" :style="{ color: WHO_COLOR[GE.types[ty]?.who || 'none'] }"><Icon :name="ICON[ty] || 'layers'" :size="16" /></span>{{ typeTitle(ty) }}</button></div>
+              <div v-if="addPrev.length" class="add-fit-row"><span class="add-dir">{{ t('graph.addBefore') }}</span>
+                <button v-for="ty in addPrev" :key="ty" type="button" class="add-pill" :class="{ cur: addCur === ty }" :data-ty="ty" @click="add(ty, true)">
+                  <span class="add-ic" :style="{ color: WHO_COLOR[GE.types[ty]?.who || 'none'] }"><Icon :name="ICON[ty] || 'layers'" :size="16" /></span>{{ typeTitle(ty) }}</button></div>
+            </div>
+            <div v-else-if="!selType && !addQ.trim() && addRecent.length" class="add-fit add-recent"><span class="add-dir">{{ t('graph.addRecent') }}</span>
+              <button v-for="ty in addRecent" :key="ty" type="button" class="add-pill" :class="{ cur: addCur === ty }" :data-ty="ty" @click="add(ty)">
+                <span class="add-ic" :style="{ color: WHO_COLOR[GE.types[ty]?.who || 'none'] }"><Icon :name="ICON[ty] || 'layers'" :size="16" /></span>{{ typeTitle(ty) }}</button></div>
+            <div v-if="addQ.trim()" class="add-cols flat">
+              <button v-for="ty in addHits" :key="ty" type="button" class="add-it" :class="{ cur: addCur === ty, off: addOff(ty) }" :data-ty="ty" @click="add(ty)">
+                <span class="add-ic" :style="{ color: WHO_COLOR[GE.types[ty]?.who || 'none'] }"><Icon :name="ICON[ty] || 'layers'" :size="18" /></span>
+                <span class="add-nm">{{ titleParts(ty)[0] }}<mark v-if="titleParts(ty)[1]">{{ titleParts(ty)[1] }}</mark>{{ titleParts(ty)[2] }}</span></button>
+              <p v-if="!addHits.length" class="add-none">{{ t('graph.addNone', { q: addQ.trim() }) }}</p>
+            </div>
+            <div v-else class="add-cols">
+              <div v-for="[g, ts] in addCols" :key="g" class="add-col"><h3>{{ t(`graph.addGroup.${g}`) }}</h3>
+                <button v-for="ty in ts" :key="ty" type="button" class="add-it" :class="{ cur: addCur === ty, off: addOff(ty) }" :data-ty="ty" @click="add(ty)">
+                  <span class="add-ic" :style="{ color: WHO_COLOR[GE.types[ty]?.who || 'none'] }"><Icon :name="ICON[ty] || 'layers'" :size="18" /></span>
+                  <span class="add-nm">{{ typeTitle(ty) }}</span></button></div>
+            </div>
+            <div class="add-about" aria-live="polite">
+              <template v-if="addCur && known(addCur)">
+                <span class="add-big" :style="{ color: WHO_COLOR[GE.types[addCur]?.who || 'none'] }"><Icon :name="ICON[addCur] || 'layers'" :size="20" /></span>
+                <b>{{ typeTitle(addCur) }}</b><p>{{ nodeWhat(addCur) }}</p>
+                <div class="add-ports"><span>{{ t('graph.addIn') }}: <i>{{ portList(addCur, 'in') }}</i></span><span>{{ t('graph.addOut') }}: <i>{{ portList(addCur, 'out') }}</i></span></div>
+              </template>
+            </div>
+            <div class="add-foot"><span class="add-keys">{{ t('graph.addKeys') }}</span>
+              <span class="add-tools"><button v-if="known('note')" type="button" @click="add('note')"><Icon :name="ICON.note || 'layers'" :size="15" />{{ t('graph.addNote') }}</button>
+                <button v-if="known('group')" type="button" @click="add('group')"><Icon :name="ICON.group || 'layers'" :size="15" />{{ t('graph.addGroupBtn') }}</button></span></div>
           </div></div>
         <button type="button" class="ghost" @click="tplOpen = true; menu = ''"><Icon name="layers" />{{ t('graph.templates') }}</button>
         <span class="sep" />

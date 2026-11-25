@@ -313,6 +313,7 @@ def main_loop() -> None:
             elif cmd == "free":
                 mm.unload_all_models()
                 EXECUTOR.reset()
+                _h3nodes.STORE.clear()   # the conditionings encoded ahead (h3nodes.RemiqoraKeep)
                 gc.collect()
                 mm.soft_empty_cache()
                 emit("freed")

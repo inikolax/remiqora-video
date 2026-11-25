@@ -20,7 +20,7 @@ const LTX = 'https://github.com/Lightricks/LTX-2/blob/main/LICENSE-2_x'
 
 // a function: the roles follow the interface's language
 export const credits = (): Credit[] => [
-  // the video models («Модели и настройки» has each one's weights)
+  // the video models («Настройки» has each one's weights)
   { group: 'video', name: 'MiniMax H3', url: 'https://huggingface.co/MiniMaxAI/MiniMax-H3', license: t('misc.credit.h3License'),
     licenseUrl: 'https://huggingface.co/Comfy-Org/MiniMax-H3', role: t('misc.credit.h3') },
   { group: 'video', name: 'LTX-2.5', url: 'https://huggingface.co/Lightricks/LTX-2.5', license: 'LTX-2 Community License', licenseUrl: LTX,

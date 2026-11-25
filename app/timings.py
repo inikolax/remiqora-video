@@ -16,6 +16,7 @@ import threading
 import time
 
 from . import config
+from .engine import graphs
 
 FILE = config.DATA_DIR / "timings.json"
 KEEP = 120   # all cards together
@@ -77,6 +78,8 @@ def scene_seconds(quality: str, width: int, height: int, length: int = 124, base
     px, secs = BASE.get(quality.split("_")[0], BASE["draft"])
     if quality.endswith("_ref"):
         secs *= 0.7   # Ref2VA: 4 turbo steps instead of 8, but the photo's tokens ride along every step
+        if quality.startswith("final") and graphs.ref_lora_768_here():
+            secs *= 2   # the final one runs the 768p LoRA's 8 steps (GPU 2026-11-10: 255-300 s against 157 s for 4)
     return secs * (width * height / px) * (length / 124)
 
 

@@ -24,7 +24,7 @@ export const FRAMINGS: Record<string, string> = table('board.framing', ['wide', 
 export const GENDERS: [string, string][] = [pair('female', 'board.gender.female'), pair('male', 'board.gender.male'), pair('other', 'board.gender.other')]
 // what a hero is (rules_v 4 plans; no kind = a person); the icon of each in lib/icons.ts
 export const KINDS: [string, string][] = [pair('person', 'board.kind.person'), pair('animal', 'board.kind.animal'), pair('robot', 'board.kind.robot'), pair('creature', 'board.kind.creature')]
-export const KIND_ICON: Record<string, string> = { person: 'user', animal: 'paw', robot: 'robot', creature: 'creature' }
+export const KIND_ICON: Record<string, string> = { person: 'user', animal: 'paw', robot: 'robot', creature: 'creature', faceless: 'portrait' }
 export const QL: Record<string, string> = table('board.quality', ['draft', 'final'])
 // how a line is said (the server's prompts.HOW turns it into English: «шёпотом» -> "whispers")
 export const HOW_RU: [string, string][] = ['', 'calm', 'soft', 'whisper', 'loud', 'shout', 'laugh', 'smile', 'angry', 'sad', 'scared',

@@ -209,6 +209,8 @@ def to_storyboard(proj: dict) -> dict:
                                 "The scenes have different LoRAs: a storyboard has one set for the whole video"))
         loras = loras if loras is not None else mine_loras
         a = graph.evaluate_node(c, sid)
+        if a.state == "ready" and a.text and a.text != text and a.text == graph.scene_text(c, sid, legacy=True):
+            text = a.text   # a 0.3.0 shot made before a drawn look rewrote the prompt: it is kept as it was shot
         scenes_out.append({"text": text, "seed": graph.seed_of(n), "kind": "continue" if cont else "new",
                            "from": ids.index(from_scene) if cont else None,
                            "start_photo": start_photo, "key": a.key if a.state in ("ready", "todo") else None, "faces": mine})

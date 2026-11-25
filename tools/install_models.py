@@ -231,11 +231,73 @@ def sha256(path: Path, limit: int | None = None) -> "hashlib._Hash":
     return h
 
 
+class RenameError(OSError):
+    """The file is downloaded and verified, but <name>.part could not be moved into place (held by another program)."""
+
+
+class ChangedError(OSError):
+    """The file on Hugging Face is not the one the manifest describes (re-uploaded, or a wrong pin): retrying cannot help."""
+
+
+def changed_message(expected: int, got: int | None) -> str:
+    return L(f"файл на Hugging Face изменился с выхода этой версии Remiqora Video (ожидалось {expected} байт, на сервере "
+             f"{got if got is not None else 'другой размер'}). Обновите Remiqora Video или сообщите об этом",
+             f"the file on Hugging Face changed since this version of Remiqora Video (expected {expected} bytes, the server has "
+             f"{got if got is not None else 'a different size'}). Update Remiqora Video or report it")
+
+
+def server_total(r) -> int | None:
+    """The whole file's size from a response: Content-Range's total on 206, Content-Length on 200."""
+    cr = r.headers.get("Content-Range") or ""
+    if "/" in cr and cr.rsplit("/", 1)[1].strip().isdigit():
+        return int(cr.rsplit("/", 1)[1])
+    if r.status == 206:
+        return None
+    cl = r.headers.get("Content-Length") or ""
+    return int(cl) if cl.isdigit() else None
+
+
+def resolve_url(f: dict) -> str:
+    """The file's download link: the manifest's pinned commit (rev), main when there is none."""
+    return f"{HF}/{f['repo']}/resolve/{urllib.parse.quote(f.get('rev') or 'main', safe='')}/{urllib.parse.quote(f['path'])}"
+
+
+RENAME_WAIT = 60.0   # seconds in total that a held file is waited for
+
+
+def _held(e: OSError) -> bool:
+    return isinstance(e, PermissionError) or getattr(e, "winerror", None) in (5, 32)
+
+
+def move_into_place(part: Path, dest: Path) -> None:
+    """os.replace with a wait: an antivirus or an indexer may hold a freshly written file for a while (WinError 5/32)."""
+    waited, pause = 0.0, 1.0
+    while True:
+        try:
+            os.replace(part, dest)
+            return
+        except OSError as e:
+            if not _held(e):
+                raise
+            if waited >= RENAME_WAIT:
+                raise RenameError(L(
+                    f"файл скачан и проверен, но переименовать не удалось: его держит другая программа (антивирус?). "
+                    f"Подождите и нажмите «повторить» или переименуйте {part.name} в {dest.name} вручную в папке {dest.parent}",
+                    f"the file is downloaded and verified, but could not be renamed: another program holds it (antivirus?). "
+                    f"Wait and press retry, or rename {part.name} to {dest.name} by hand in {dest.parent}")) from e
+            say("retry", L(f"  файл занят другой программой, жду ({int(waited)} с из {int(RENAME_WAIT)})…",
+                           f"  the file is held by another program, waiting ({int(waited)} s of {int(RENAME_WAIT)})…"),
+                name=dest.name, waited=int(waited), error=str(e))
+            time.sleep(pause)
+            waited += pause
+            pause = min(pause * 2, 10.0)
+
+
 def download(f: dict, dest: Path, tok: str | None, on_bytes) -> None:
     """One file into dest, through dest.part; raises Refused, or OSError after the tries."""
     part = dest.with_name(dest.name + ".part")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    url = f"{HF}/{f['repo']}/resolve/main/{urllib.parse.quote(f['path'])}"
+    url = resolve_url(f)
     total = f["bytes"]
     for attempt in range(1, TRIES + 1):
         have = part.stat().st_size if part.exists() else 0
@@ -253,6 +315,9 @@ def download(f: dict, dest: Path, tok: str | None, on_bytes) -> None:
                 if have:
                     headers["Range"] = f"bytes={have}-"
                 with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as r:
+                    seen = server_total(r)
+                    if seen is not None and seen != total:
+                        raise ChangedError(changed_message(total, seen))
                     if have and r.status != 206:   # the server ignored Range: from the start
                         have = 0
                     with open(part, "ab" if have else "wb") as out:
@@ -263,14 +328,26 @@ def download(f: dict, dest: Path, tok: str | None, on_bytes) -> None:
                             done += len(block)
                             on_bytes(done)
             got = part.stat().st_size
+            if got > total:
+                raise ChangedError(changed_message(total, got))
             if got != total:
                 raise OSError(L(f"скачано {got} из {total} байт", f"{got} of {total} bytes downloaded"))
             if f.get("sha256") and sha256(part).hexdigest() != f["sha256"]:
                 part.unlink()   # a broken file is not continued: the next try starts over
+                if not f.get("rev"):   # unpinned: the right size with another content means upstream changed it; retrying cannot help
+                    raise ChangedError(L("файл на Hugging Face изменился с выхода этой версии Remiqora Video (не сошлась контрольная сумма sha256). Обновите Remiqora Video или сообщите об этом",
+                                         "the file on Hugging Face changed since this version of Remiqora Video (the sha256 checksum does not match). Update Remiqora Video or report it"))
                 raise OSError(L("не сошлась контрольная сумма sha256", "the sha256 checksum does not match"))
-            part.replace(dest)
-            return
+            break
+        except ChangedError:
+            part.unlink(missing_ok=True)   # a later run (a fixed manifest) starts clean
+            raise
         except urllib.error.HTTPError as e:
+            if e.code == 416:   # Range past the end of the server's file: it is not the file we were resuming
+                cr = (e.headers.get("Content-Range") or "") if e.headers else ""
+                seen = int(cr.rsplit("/", 1)[1]) if "/" in cr and cr.rsplit("/", 1)[1].strip().isdigit() else None
+                part.unlink(missing_ok=True)
+                raise ChangedError(changed_message(total, seen)) from e
             if e.code in (401, 403):
                 raise Refused(L("нужен токен Hugging Face с доступом: примите лицензию на странице модели (Agree)",
                                 "a Hugging Face token with access is needed: accept the license on the model's page (Agree)")) from e
@@ -285,7 +362,9 @@ def download(f: dict, dest: Path, tok: str | None, on_bytes) -> None:
             say("retry", L(f"  не вышло ({err}), ещё раз через {5 * attempt} с…", f"  failed ({err}), again in {5 * attempt} s…"),
                 name=dest.name, attempt=attempt, tries=TRIES, error=str(err))
             time.sleep(5 * attempt)
-    raise OSError(str(err))
+    else:
+        raise OSError(str(err))
+    move_into_place(part, dest)   # outside the network retries: no re-download, no re-hash
 
 
 def plan(m: dict, sets: list[str], models: Path, roots: list[Path]) -> dict:
@@ -385,6 +464,7 @@ def main() -> int:
     for sid, s in p.items():
         say("set", f"\n== {s['title']} ({gb(s['bytes'])}) ==", id=sid, status="running")
         error, refused = None, False
+        codes: dict[str, str] = {}
         # small files first: a bad connection shows on the first gigabyte, not after twenty
         for f in sorted(s["files"], key=lambda x: x["bytes"]):
             if f["found"]:
@@ -412,10 +492,12 @@ def main() -> int:
                 say("file", f"  {f['name']}: {e}", set=sid, name=f["name"], status="failed", code="access", error=str(e))
             except OSError as e:
                 error = str(e)
-                say("file", f"  {f['name']}: {e}", set=sid, name=f["name"], status="failed", code="network", error=str(e))
+                code = "rename" if isinstance(e, RenameError) else "changed" if isinstance(e, ChangedError) else "network"
+                codes[sid] = code
+                say("file", f"  {f['name']}: {e}", set=sid, name=f["name"], status="failed", code=code, error=str(e))
         status = "done" if error is None else "skipped" if refused else "failed"
         result[sid] = {"status": status, "error": error}
-        say("set", "", id=sid, status=status, error=error, code="access" if refused else "network" if error else None)
+        say("set", "", id=sid, status=status, error=error, code="access" if refused else codes.get(sid, "network") if error else None)
 
     lines = []
     for sid, r in result.items():

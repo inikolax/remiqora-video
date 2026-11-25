@@ -24,7 +24,7 @@ export default {
       video: { title: 'Ролик', text: 'Съёмка цепочкой, склейка, музыка, 1080p / 4K.' },
       graph: { title: 'Граф', text: 'Ветки, дубли, несколько выходов. «Граф» на главной.' },
       lab: { title: 'Лаборатория', text: 'Одна сцена вручную: промт, стартовый кадр, LoRA.' },
-      models: { title: 'Модели', text: 'Веса видеомоделей и сценариста, папки, скачивание.' },
+      settings: { title: 'Настройки', text: 'Модели и где они работают, веса и LoRA, движок, папки, сценарист, язык.' },
     },
   },
   en: {
@@ -50,7 +50,7 @@ export default {
       video: { title: 'Video', text: 'Shooting as a chain, cuts, music, 1080p / 4K.' },
       graph: { title: 'Graph', text: 'Branches, takes, several outputs. «Graph» on the home screen.' },
       lab: { title: 'Lab', text: 'One scene by hand: prompt, start frame, LoRA.' },
-      models: { title: 'Models', text: 'Weights of the video models and the writer, folders, downloads.' },
+      settings: { title: 'Settings', text: 'Models and where they run, weights and LoRA, engine, folders, writer, language.' },
     },
   },
 }

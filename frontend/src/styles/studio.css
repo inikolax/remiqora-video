@@ -540,6 +540,8 @@ kbd { display: inline-flex; align-items: center; justify-content: center; min-wi
 .node-card dt svg { color: var(--h); flex: none; }
 .help-body .node-card dd { padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
 .help-body .node-card dd p { margin: 0; font-size: 14px; line-height: 1.55; }
+.node-card ul.nc-modes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 1.45; }
+.help-body .node-card ul.nc-modes li, .node-card ul.nc-modes li { margin: 0; padding: 0; line-height: 1.45; }
 /* the ports as a list: the port's chip, then what to plug into it / where it goes */
 .nc-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 10px; align-items: baseline; }
 .nc-h { grid-column: 1 / -1; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding-top: 4px; }
@@ -710,7 +712,7 @@ ul.nc-opts ul li { margin: 0 0 2px; font-size: 13.5px; line-height: 1.5; }
 .llm-empty { padding: 10px; color: var(--muted); font-size: 13px; cursor: default; }
 @media (max-width: 640px) { .llm-lbl { display: none; } .llm-btn { max-width: 220px; } }
 
-/* ---------- «Модели и настройки» (phase 6, after Remiqora's Models page) ---------- */
+/* ---------- «Настройки» (phase 6, after Remiqora's Models page) ---------- */
 .status a.gear { display: inline-flex; align-items: center; gap: 6px; }
 .models-page { max-width: 1200px; }
 .models-head { display: flex; gap: 24px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 18px; }
@@ -972,6 +974,7 @@ a.stage:hover b { color: #fff; }
 .m-params { display: flex; flex-wrap: wrap; gap: 14px 22px; }
 .m-params label { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
 .m-params input { width: 120px; }
+.m-params input[type=checkbox] { width: auto; }
 .m-params .p-text { max-width: 420px; }
 @media (max-width: 640px) { .board-head input { font-size: 21px; } }
 
@@ -1122,7 +1125,7 @@ div.mp-row.miss { opacity: .75; cursor: default; }
 .board-song { display: flex; flex-direction: column; gap: 8px; }
 .bs-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .bs-head .muted { font-size: 13px; }
-/* Krea's LoRA on «Модели и настройки» */
+/* Krea's LoRA on «Настройки» */
 .kl-row { align-items: center; }
 .kl-row.bad { opacity: .65; }
 .kl-pic { width: 44px; height: 44px; flex: none; border-radius: 8px; object-fit: cover; background: var(--deep); }
@@ -1218,6 +1221,8 @@ div.mp-row.miss { opacity: .75; cursor: default; }
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(260px, .9fr);
   grid-template-areas: "head head head" "main mid side" "foot foot foot"; }
 .start-form.is-graph { grid-template-areas: "head head head" "main main side" "foot foot foot"; }
+.start-form.is-beat { grid-template-areas: "head head head" "main mid side" "route route route" "foot foot foot"; }   /* «Бит-клип» (BeatStart.vue): the route under the fields */
+.sf-route { grid-area: route; }
 .sf-head { grid-area: head; padding-right: 110px; }
 .sf-head p { max-width: 90ch; }
 .sf-main { grid-area: main; }
@@ -1242,6 +1247,7 @@ div.mp-row.miss { opacity: .75; cursor: default; }
 @media (max-width: 1180px) {
   .start-form { grid-template-columns: minmax(0, 1fr) minmax(260px, .8fr); grid-template-areas: "head head" "main side" "mid side" "foot foot"; }
   .start-form.is-graph { grid-template-areas: "head head" "main side" "foot foot"; }
+  .start-form.is-beat { grid-template-areas: "head head" "main side" "mid side" "route route" "foot foot"; }
   .gs-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
@@ -1252,6 +1258,7 @@ div.mp-row.miss { opacity: .75; cursor: default; }
   .sf-head { padding-right: 0; }
   .sf-head .title-row { padding-right: 96px; }
   .start-form, .start-form.is-graph { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "main" "mid" "side" "foot"; padding: 16px; }
+  .start-form.is-beat { grid-template-areas: "head" "main" "mid" "side" "route" "foot"; }
   .gs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sf-foot { flex-direction: column-reverse; align-items: stretch; }
   .sf-foot .primary { width: 100%; min-width: 0; }
@@ -1855,3 +1862,10 @@ img.zoomable { cursor: zoom-in; }
 .cc-own-go small { color: var(--muted); font-size: 12px; flex: 1 1 200px; }
 .cr-hero { display: grid; gap: 8px; }
 .cr-hero textarea { width: 100%; resize: vertical; }
+
+/* ---------- «Настройки» → «Общие»: the app's general settings (components/SettingsGeneral.vue) ---------- */
+.settings-general { display: flex; flex-direction: column; gap: 18px; }
+.set-field { display: flex; flex-direction: column; gap: 6px; }
+.set-h { margin: 6px 0 0; font-size: 15px; font-weight: 600; }
+.settings-general .m-fold { margin: 0; }
+.settings-general .m-fold > summary { cursor: pointer; }

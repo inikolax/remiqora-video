@@ -9,7 +9,7 @@ export interface VideoModel {
   installed?: boolean  // all its weights are there (the server lists these first)
   default?: boolean    // the model a new project takes
   imported?: boolean   // shots brought from remiqora-video: named on a scene, never offered
-  color: string        // the shelf's ribbon and filter dots, «Модели и настройки»'s disk bar
+  color: string        // the shelf's ribbon and filter dots, «Настройки»'s disk bar
 }
 // phase 11: a song for a clip (app/song.py public): its parts, bars, chorus, the sung lines with their times, loudness
 export interface Song {

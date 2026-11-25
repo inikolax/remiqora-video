@@ -153,7 +153,7 @@ def first_moment(plan: dict, s: dict, names: list[str], shot: Optional[str] = No
     return framing, beats[0] if beats else None
 
 
-_PLURAL = {"person": "people", "animal": "animals", "robot": "robots", "creature": "creatures"}
+_PLURAL = {"person": "people", "animal": "animals", "robot": "robots", "creature": "creatures", "faceless": "figures"}
 
 
 def _only(kinds: list[str]) -> str:
@@ -223,7 +223,7 @@ def face_crop(photo: Path) -> Optional[Path]:
         if not box or not size:
             return None
         import cv2
-        img = cv2.imread(str(photo))
+        img = checks.imread(photo)
         x, y, fw, fh = box
         side = min(round(max(fw, fh) * FACE_CROP), size[0], size[1])
         x0 = max(0, min(size[0] - side, round(x + fw / 2 - side / 2)))
@@ -231,7 +231,7 @@ def face_crop(photo: Path) -> Optional[Path]:
         cut = cv2.resize(img[y0:y0 + side, x0:x0 + side], (FACE_PX, FACE_PX),
                          interpolation=cv2.INTER_LANCZOS4 if side < FACE_PX else cv2.INTER_AREA)
         FACES.mkdir(parents=True, exist_ok=True)
-        cv2.imwrite(str(dest), cut)
+        checks.imwrite(dest, cut)
         return dest
     except Exception:  # noqa: BLE001 - the crop is a bonus: the portrait alone as before
         return None
@@ -250,7 +250,7 @@ def similarity(frame: Path, photo: Path) -> Optional[float]:
     """SFace cosine of the one face on the frame and the one on the photo; None when either isn't found alone."""
     try:
         import cv2
-        a, b = cv2.imread(str(photo)), cv2.imread(str(frame))
+        a, b = checks.imread(photo), checks.imread(frame)
         fa, fb = (checks._face_feature(x) if x is not None else None for x in (a, b))
         if fa is None or fb is None:
             return None

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// «Модели и настройки» → «Где работают модели»: this computer, a server the studio rents itself
+// «Настройки» → «Где работают модели»: this computer, a server the studio rents itself
 // (provider, key, card, models, auto-stop, «Развернуть» with its steps) or the user's own server. /api/cloud (app/cloud).
 // The page re-reads it every 3 s while a deploy runs, else every 15 s.
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'

@@ -233,7 +233,47 @@ def run() -> None:
             projects.remove(p)
 
 
+def stale_hints_and_drop_pin():
+    """retry_hint goes when the picture's prompt, look or its scene's role is edited; a hand-built beat montage pins its drop once."""
+    def doc(prompt="a club", look="", role="hero", hint="no faces"):
+        return {"nodes": [{"id": "p", "type": "picture", "data": {"prompt": prompt, "look": look, "retry_hint": hint}},
+                          {"id": "s", "type": "scene", "data": {"role": role}}],
+                "edges": [{"id": "e", "source": "p", "sourceHandle": "image", "target": "s", "targetHandle": "start"}]}
+    for what, new in [("prompt", doc(prompt="a beach")), ("look", doc(look="anime")), ("scene role", doc(role="macro"))]:
+        graph.drop_stale_hints(doc(), new)
+        ok("retry_hint" not in new["nodes"][0]["data"], f"retry_hint is dropped when the {what} is edited")
+    same = doc()
+    graph.drop_stale_hints(doc(), same)
+    ok(same["nodes"][0]["data"]["retry_hint"] == "no faces", "an untouched picture keeps its retry_hint")
+    moved = doc()
+    moved["nodes"][0]["position"] = {"x": 5, "y": 5}
+    graph.drop_stale_hints(doc(), moved)
+    ok(moved["nodes"][0]["data"].get("retry_hint") == "no faces", "moving the node keeps its retry_hint")
+
+    saved = {}
+    pt = Patch()
+    try:
+        pt(graph, "_out", lambda c, *a: SimpleNamespace(song="sg1"))
+        pt(graph, "song_sig", lambda sid: "sig:" + sid)
+        pt(graph, "update", lambda pid, fn: fn(saved.setdefault("g", {"nodes": [{"id": "m", "type": "beat_montage", "data": {}}]})))
+        c = SimpleNamespace(by={"m": {"data": {}}}, pid="x", inputs=lambda nid, h: [("t", "song")])
+        art = SimpleNamespace(beat={"drop": 31.5})
+        graph._pin_beat_drop(c, "m", art)
+        ok(saved["g"]["nodes"][0]["data"].get("drop_auto") == {"drop": 31.5, "sig": "sig:sg1"}, "a hand-built beat montage pins its drop on the first build")
+        c.by["m"]["data"]["drop_auto"] = {"drop": 1.0, "sig": "x"}
+        saved["g"]["nodes"][0]["data"]["drop_auto"] = {"drop": 1.0, "sig": "x"}
+        graph._pin_beat_drop(c, "m", art)
+        ok(saved["g"]["nodes"][0]["data"]["drop_auto"]["drop"] == 1.0, "an existing pin is not overwritten")
+        saved.clear()
+        c.by["m"]["data"] = {"drop": 20}
+        graph._pin_beat_drop(c, "m", art)
+        ok("g" not in saved, "the user's own drop needs no pin")
+    finally:
+        pt.undo()
+
+
 if __name__ == "__main__":
     run()
+    stale_hints_and_drop_pin()
     print("FAILED: %d" % failed if failed else "all passed")
     sys.exit(1 if failed else 0)

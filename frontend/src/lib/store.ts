@@ -31,7 +31,7 @@ export const S = reactive({
   kreaLoras: [] as { id: string; name: string; verdict: string; strength?: number }[],   // Krea 2's library (/api/krea/loras)
   projects: [] as Record<string, any>[], moods: [] as string[],
   banners: [] as Banner[],
-  help: null as null | { section: string; term: string; x: number; y: number; key: string },
+  help: null as null | { section: string; term: string; x: number; y: number; key: string; text?: string; title?: string },   // text: a field's own words (locales), shown as they are
   guide: null as string | null,   // the help window open: a screen's (lib/guides.ts) or 'app' from the header
   keys: false,                    // the graph's keys sheet
   // the idea screen's form, kept between visits
@@ -91,9 +91,9 @@ export async function pollSystem() {
 export async function loadLlms() {
   try { S.llms = await api<LlmList>('/api/llm/models') } catch { return }
   const r = S.llms!
-  // the writer is chosen on «Модели» (the server's LLM_MODEL), the same for every browser: a model this browser
+  // the writer is chosen on «Настройки» (the server's LLM_MODEL), the same for every browser: a model this browser
   // remembered from before (another device, the old header picker) no longer overrides it - it sent a writer
-  // without eyes with a photo while «Модели» said another (2026-11-04)
+  // without eyes with a photo while «Настройки» said another (2026-11-04)
   S.llm = r.default || (r.models.some((m) => m.id === S.llm) ? S.llm : r.models[0]?.id || null)
   if (!r.server_ok) banner(t('misc.noLlamaServer'))
 }

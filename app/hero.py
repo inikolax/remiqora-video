@@ -27,6 +27,8 @@ def who_of(c: dict, plan: Optional[dict] = None) -> str:
     """Who the portrait shows, said outright: Krea follows a look's anatomy («lean build, high cheekbones») to a man's
     face whatever the «woman» in it (2026-10-29, three heroines in a row). A plan written since rules_v 2 (2026-11-03):
     the gender and age only - nothing about beauty, the cast's look decides."""
+    if is_faceless(c):   # the beat clip's hero: the line is the preset's, the picture needs no «one man»
+        return "one faceless figure"
     if prompts.is_nonperson(c):   # `kind` comes from a rules_v 4 writer or from the user in the hero card; the look starts with the species
         return f"one {prompts.kind_of(c)}"
     young = int(c.get("age") or 30) < 36
@@ -41,7 +43,140 @@ def who_of(c: dict, plan: Optional[dict] = None) -> str:
 
 
 LIGHT_OF = {"animal": "Soft natural light, sharp focus on the eyes.", "creature": "Soft natural light, sharp focus on the eyes.",
-            "robot": "Soft even light, sharp focus on the details."}
+            "robot": "Soft even light, sharp focus on the details.", "faceless": "Dramatic light, sharp focus on the mask."}
+
+
+# The beat clip's hero (kind "faceless"): a figure whose face is hidden for good - a mask, a
+# visor, a hood - so no face drifts from shot to shot. Every picture of it carries the preset's line word for word (the
+# hand-made clips' HERO lines: spec54, c55, c56). The face detector is OFF for it as for any non-person hero
+# (prompts.is_nonperson: the kind is in KIND_KEEP); the picture check is the opposite one - a face found on it is a redraw
+# (picture_checks.face_on_faceless). id: (Russian label, English label, the hero's line)
+FACELESS_PRESETS = {
+    "chrome": ("Хромовая маска", "Chrome mask",
+               "a tall slim dancer wearing a seamless mirror-polished chrome full-face mask with no features at all, a smooth "
+               "reflective chrome oval instead of a face, a black oversized hoodie with the hood up, black techwear cargo "
+               "pants, black gloves"),
+    "visor": ("Зеркальный визор", "Mirror visor helmet",
+              "a motorcyclist in a black full-face helmet with a mirror-chrome visor that hides the face completely, a black "
+              "leather riding jacket with thin white stripes on the sleeves, black gloves, black riding boots"),
+    "porcelain": ("Белая фарфоровая маска", "White porcelain mask",
+                  "a dancer wearing a seamless glossy white porcelain full-face mask with no features at all, a smooth white "
+                  "oval instead of a face, a long flowing white coat, white gloves, white boots"),
+    "hood": ("Капюшон в тени", "Hood in shadow",
+             "a tall figure in a black oversized hoodie with the hood pulled low, the face in deep black shadow so that no "
+             "face is visible at all, black techwear pants, black gloves"),
+    "silhouette": ("Силуэт", "Silhouette",
+                   "a tall dark silhouette of a person seen as a flat black shape against the light, no face and no features "
+                   "visible at all, only the outline of the head and body"),
+}
+FACELESS_DEFAULT = "chrome"
+# the same hero in a close-up / macro: the head only, no body (spec54 / c55 / c56's mask_macro words)
+FACELESS_HEAD = {
+    "chrome": "a seamless mirror-polished chrome full-face mask with no features, a smooth reflective chrome oval instead of a face, framed by a black hood",
+    "visor": "a black full-face motorcycle helmet with a mirror-chrome visor that hides the face completely",
+    "porcelain": "a seamless glossy white porcelain full-face mask with no features, a smooth white oval instead of a face",
+    "hood": "a black hood pulled low over a face lost in deep black shadow, no face visible at all",
+    "silhouette": "the black silhouette of a head against the light, no face and no features visible at all",
+}
+
+
+# «Свой герой» (the user describes the hero in their own words): what stands in until the writer has put the words into the
+# hero's look - and what the code falls back to when the writer's line is empty or banned. {face hidden: (line, head line)}
+OWN_FALLBACK = {
+    True: ("a figure in a dark hooded coat, the face hidden in shadow",
+           "a dark hood pulled low over a face lost in deep black shadow, no face visible at all"),
+    False: ("a person in a long dark coat, black gloves and black boots",
+            "a close-up of the head and shoulders of a person in a long dark hooded coat"),
+}
+# a preset's own words: at least one of them must stay in a line written for «preset + details» (the mask / helmet stays)
+PRESET_KEEP = {"chrome": ("chrome",), "visor": ("visor", "helmet"), "porcelain": ("porcelain",), "hood": ("hood",),
+               "silhouette": ("silhouette",)}
+
+
+def hero_text(c: Optional[dict]) -> str:
+    """The user's own words about the hero (the card's `desc`); empty = the preset as it is, today's way."""
+    return str((c or {}).get("desc") or "").strip()
+
+
+def is_own(c: Optional[dict]) -> bool:
+    """«Свой герой»: no preset, the text alone is the hero."""
+    return bool((c or {}).get("own"))
+
+
+def face_hidden(c: Optional[dict]) -> bool:
+    """Whether the hero's face is hidden (the faceless rules: the picture check, no face words). On unless the card says off."""
+    return (c or {}).get("face_hidden") is not False
+
+
+def own_card(text: str, hidden: bool = True) -> dict:
+    """A «Герой» node's data for «Свой герой»: faceless kind, no preset, the user's words, the stand-in lines."""
+    line, head = OWN_FALLBACK[bool(hidden)]
+    return {"kind": "faceless", "preset": "", "own": True, "desc": text.strip(), "face_hidden": bool(hidden), "gender": "other", "age": 0,
+            "en": line, "head_en": head, "ru": "Свой герой", "outfit_en": "", "outfit_ru": ""}
+
+
+def faceless_head(c) -> str:
+    """The hero's close-up line (the head only) for a card or a preset id; a card with its own words keeps them."""
+    if isinstance(c, str):
+        return FACELESS_HEAD.get(c, FACELESS_HEAD[FACELESS_DEFAULT])
+    c = c or {}
+    if is_own(c):
+        return (c.get("head_en") or "").strip() or OWN_FALLBACK[face_hidden(c)][1]
+    preset = c.get("preset") or ""
+    own = (c.get("en") or "").strip()
+    if own and (preset not in FACELESS_PRESETS or own != FACELESS_PRESETS[preset][2]):
+        return own
+    return FACELESS_HEAD.get(preset, FACELESS_HEAD[FACELESS_DEFAULT])
+
+
+def is_faceless(c: Optional[dict]) -> bool:
+    """A cast entry / hero node of the faceless kind."""
+    return (c or {}).get("kind") == "faceless"
+
+
+def faceless_line(c) -> str:
+    """The hero's line for a faceless hero: a card (its `preset`, else its own `en`) or a preset id."""
+    if isinstance(c, str):
+        return FACELESS_PRESETS.get(c, FACELESS_PRESETS[FACELESS_DEFAULT])[2]
+    c = c or {}
+    if is_own(c) and not (c.get("en") or "").strip():
+        return OWN_FALLBACK[face_hidden(c)][0]
+    return (c.get("en") or "").strip() or FACELESS_PRESETS.get(c.get("preset") or "", FACELESS_PRESETS[FACELESS_DEFAULT])[2]
+
+
+# A mask carved or painted with a face (an oni / demon, a skull, a Venetian or kabuki mask...) is a face to YuNet: the
+# first live beat clip (2026-11-06, a red oni mask) had 4 of its 6 hero pictures flagged and redrawn with a hint for a
+# smooth mask the user had not asked for. For such a hero the face-on-mask check is off.
+_FACE_MASK = re.compile(r"\b(oni|demon|devil|skull|skeleton|venetian|carnival|kabuki|noh|hannya|tengu|plague doctor)\b", re.I)
+_ANIMAL = r"(?:animal|wolf|fox|cat|tiger|lion|bear|owl|raven|crow|bird|deer|stag|boar|dog|jackal|rabbit|bull|ram|goat)"
+# a feature word counts only when it is tied to the mask / helmet / head itself: «wolf mask», «mask of a fox», «horned mask»,
+# «mask with fangs». «cat-ear hood», «balaclava covering the nose and mouth» say nothing of a face on the mask.
+_MASK_TIED = re.compile(
+    r"\b" + _ANIMAL + r"[- ]head(?:ed)?\b|"
+    r"\b" + _ANIMAL + r"(?:[- ]faced)?\s+(?:mask|helmet)\b|"
+    r"\b(?:mask|helmet)\s+of\s+(?:a\s+|an\s+|the\s+)?" + _ANIMAL + r"\b|"
+    r"\b(?:fanged|grinning|horned|toothed|tusked|snarling|smiling)\s+(?:\w+\s+)?(?:mask|helmet)\b|"
+    r"\b(?:carved|painted)\s+(?:\w+\s+)?(?:face\b|mask\b)|"
+    r"\b(?:mask|helmet)\s+with\s+(?:\w+\s+){0,2}(?:fangs?|teeth|tusks?|horns|a\s+grin|a\s+mouth|a\s+nose|eye\s+holes?|eye\s+slots?)\b", re.I)
+
+
+def mask_has_features(text: str) -> bool:
+    """Whether the hero's words give the mask a face of its own (eyes, a mouth, a muzzle): then YuNet sees a face in it."""
+    t = text or ""
+    return bool(_FACE_MASK.search(t) or _MASK_TIED.search(t))
+
+
+def faces_checked(c: Optional[dict]) -> bool:
+    """Whether the face detector may judge this hero's shots (SFace, similarity): not for a faceless one - for it the
+    check is the reverse, picture_checks.face_on_faceless."""
+    return not is_faceless(c) and not prompts.is_nonperson(c)
+
+
+def faceless_card(preset: str = FACELESS_DEFAULT) -> dict:
+    """A cast entry / hero node's data for a preset."""
+    p = preset if preset in FACELESS_PRESETS else FACELESS_DEFAULT
+    ru, en, line = FACELESS_PRESETS[p]
+    return {"kind": "faceless", "preset": p, "gender": "other", "age": 0, "en": line, "ru": ru, "outfit_en": "", "outfit_ru": ""}
 
 
 def prompt_of(plan: dict, i: int) -> str:
@@ -91,9 +226,24 @@ TWEAKS = {
 }
 LIGHT = {"warm", "studio"}
 CHANGE_SYSTEM_NONPERSON = """You turn a user's short change to a character's look (an animal, a robot or a creature) into one short English
-sentence for an image model: concrete visual words about the character only (fur, colours, shape, materials, lights, size), no names, no feelings."""
+sentence for an image model: concrete visual words about the character only (fur, colours, shape, materials, lights, size), no names, no feelings.
+Words or tags already in English (like Some_Trigger_Word) stay as they are. Only the sentence, no notes, no placeholders."""
 CHANGE_SYSTEM = """You turn a user's short change to a person's look into one short English sentence for an image model:
-concrete visual words about the person only (hair, face, makeup, body, clothes), no names, no feelings."""
+concrete visual words about the person only (hair, face, makeup, body, clothes), no names, no feelings.
+Words or tags already in English (like Some_Trigger_Word) stay as they are. Only the sentence, no notes, no placeholders."""
+
+
+def split_change(text: str) -> tuple[list[str], str]:
+    """The user's own change -> (the pieces to keep verbatim, the rest for the writer to put into English). In a text
+    with Cyrillic letters, a comma-separated piece written in Latin letters only is a LoRA's trigger or an English
+    phrase meant for the model as it is: the writer used to translate or drop it. A text with no Cyrillic at all
+    goes to the writer whole (English - normalized, another Latin-script language - translated)."""
+    text = text.strip()
+    if not re.search(r"[Ѐ-ӿ]", text):
+        return [], text
+    pieces = [p.strip(" .;") for p in re.split(r"\s*,\s*", text) if p.strip(" .;")]
+    keep = [p for p in pieces if re.search(r"[A-Za-z]", p) and not re.search(r"[Ѐ-ӿ]", p)]
+    return keep, ", ".join(p for p in pieces if p not in keep)
 
 
 def _set_photo(p: dict, i: int, name: str) -> None:
@@ -122,7 +272,7 @@ def faces_on(path, c: Optional[dict] = None) -> int:
     try:
         import cv2
         from . import checks
-        img = cv2.imread(str(path))
+        img = checks.imread(path)
         return len(checks._confident_faces(img)) if img is not None else -1
     except Exception:  # noqa: BLE001 - a check is a bonus, never a blocker
         return -1
@@ -137,7 +287,7 @@ def one_face(pid: str, i: int, name: str) -> dict | None:
         import cv2
         from . import checks
         folder = projects.folder(pid)
-        img = cv2.imread(str(folder / name))
+        img = checks.imread(folder / name)
         faces = checks._confident_faces(img) if img is not None else []
         if not faces:
             return None
@@ -149,7 +299,7 @@ def one_face(pid: str, i: int, name: str) -> dict | None:
         if len(checks._confident_faces(cut)) != 1:
             return None
         out = f"cast_{uuid.uuid4().hex[:8]}.png"
-        cv2.imwrite(str(folder / out), cut)
+        checks.imwrite(folder / out, cut)
     except Exception:  # noqa: BLE001 - the try as it is, then
         return None
     cur = projects.load(pid)
@@ -241,15 +391,17 @@ async def adjust(job: jobs.Job, pid: str, i: int, keys: list[str], text: str = "
     src = portrait_path(proj, i)
     if not src:
         raise EngineError(i18n.L("Сначала нужен портрет героя", "The hero needs a portrait first"))
+    keep, to_translate = split_change(text)
     text_en = ""
-    if text.strip():
+    if to_translate:
         from .llm import client as llm
         job.progress["message"] = i18n.L("сценарист переводит правку", "the writer translates the change")
         llm.use_lang(i18n.plan_lang_name(plan))
         schema = {"type": "object", "properties": {"en": {"type": "string"}}, "required": ["en"], "additionalProperties": False}
         async with llm.session(plan.get("model")) as cl:
-            d = await cl.chat_json(CHANGE_SYSTEM_NONPERSON if prompts.is_nonperson(plan["cast"][i]) else CHANGE_SYSTEM, f"The change ({llm.lang()}): {text.strip()}", schema, temperature=0.2, seed=1, max_tokens=200, step="cast")
+            d = await cl.chat_json(CHANGE_SYSTEM_NONPERSON if prompts.is_nonperson(plan["cast"][i]) else CHANGE_SYSTEM, f"The change ({llm.lang()}): {to_translate}", schema, temperature=0.2, seed=1, max_tokens=1500, step="cast")   # 1500: a thinking model (Gemma 4) reasons first, 200 was all thought
         text_en = str(d.get("en", "")).strip()
+    text_en = ", ".join([*keep, text_en] if text_en else keep)
     change = " ".join([TWEAKS[k][1] for k in keys] + ([text_en] if text_en else []))
     flux = picture.edit_problem() is None
     seed0 = plan["cast"][i].get("seed")

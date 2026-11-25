@@ -179,7 +179,7 @@ onUnmounted(() => { document.removeEventListener('pointerdown', outside); docume
             <Icon name="chip" :size="16" /><span class="rt-opt-t"><b>{{ m.name }}</b><small>{{ m.missing.length ? t('idea.pick.noWeights') : m.text }}</small></span>
             <span class="rt-opt-r">{{ perScene(m.id) }}</span></button>
         </div>
-        <router-link v-if="cards.some((m) => m.missing.length)" class="link-btn rt-pop-link" to="/models">{{ t('idea.pick.download') }}</router-link>
+        <router-link v-if="cards.some((m) => m.missing.length)" class="link-btn rt-pop-link" to="/settings/models">{{ t('idea.pick.download') }}</router-link>
         <p class="rt-pop-lora"><Icon name="plug" :size="14" />{{ t('home.loraUnder') }}</p>
       </div>
     </div>

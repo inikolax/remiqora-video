@@ -1,0 +1,121 @@
+{
+ "name": "Episode",
+ "about": "An episode from a screenplay: Series, two heroes, a Screenplay with a sample — «Expand into shots» makes a shot per line.",
+ "order": 17,
+ "nodes": [
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -420
+   },
+   "data": {
+    "text": "Episode: an episode from a screenplay.\n\n1. Series is the bible: title, look, world, characters, «Previously». The same node goes into every episode (copy the graph); «Add to Previously» on the Screenplay appends the episode's summary.\n2. Heroes: the looks are filled in; your own portrait: «Hero photo» → «Describe from photo». With a photo every shot keeps the face (Ref2VA).\n3. Screenplay: text as «SCENE 1. Place, time.» / «NAME (how): line» / «— action» (the lines are spoken as written). Edit it by hand or press «Write the screenplay» (from the Idea and the Series).\n4. «Expand into shots»: a Prompt and a Scene per line and action (one speaks, the other listens), then a Montage and an Output.\n5. «Export .srt»: the lines' subtitles, timed by the shot lengths."
+   }
+  },
+  {
+   "id": "sv",
+   "type": "series",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Evening city",
+    "look": "",
+    "style": "Live-action film, soft evening light",
+    "world": "A quiet seaside town, late evening.",
+    "characters": "She is calm and attentive. He is quiet and caring.",
+    "recap": ""
+   }
+  },
+  {
+   "id": "idea",
+   "type": "idea",
+   "position": {
+    "x": 0,
+    "y": 420
+   },
+   "data": {
+    "title": "Episode idea",
+    "text": "An evening by the sea: he and she sit on the pier, she is cold. They talk about him leaving tomorrow, and she asks him to come back."
+   }
+  },
+  {
+   "id": "h1",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 700
+   },
+   "data": {
+    "title": "She",
+    "gender": "female",
+    "age": 27,
+    "en": "a 27-year-old woman with long wavy chestnut hair, soft hazel eyes and delicate features",
+    "outfit_en": "a cream knitted scarf over a camel wool coat",
+    "ru": "27 лет, длинные волнистые каштановые волосы, мягкие карие глаза. Кремовый шарф поверх пальто цвета кэмел."
+   }
+  },
+  {
+   "id": "h2",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 1000
+   },
+   "data": {
+    "title": "He",
+    "gender": "male",
+    "age": 31,
+    "en": "a 31-year-old man with short dark hair, light stubble and grey eyes, tall and lean",
+    "outfit_en": "a dark navy raincoat over a grey sweater",
+    "ru": "31 год, короткие тёмные волосы, лёгкая щетина, серые глаза. Тёмно-синий плащ поверх серого свитера."
+   }
+  },
+  {
+   "id": "sp",
+   "type": "screenplay",
+   "position": {
+    "x": 420,
+    "y": 300
+   },
+   "data": {
+    "title": "Screenplay",
+    "seconds": 30,
+    "text": "SCENE 1. Seashore, sunset.\nHE (softly): Are you cold?\nSHE (smiling): No. I feel good.\n— She rests her head on his shoulder.\nSHE (softly): Are you really leaving tomorrow?\nHE (calmly): Yes. But I'll be back, I promise."
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "sv-text-sp-series",
+   "source": "sv",
+   "sourceHandle": "text",
+   "target": "sp",
+   "targetHandle": "series"
+  },
+  {
+   "id": "idea-text-sp-idea",
+   "source": "idea",
+   "sourceHandle": "text",
+   "target": "sp",
+   "targetHandle": "idea"
+  },
+  {
+   "id": "h1-look-sp-cast",
+   "source": "h1",
+   "sourceHandle": "look",
+   "target": "sp",
+   "targetHandle": "cast"
+  },
+  {
+   "id": "h2-look-sp-cast",
+   "source": "h2",
+   "sourceHandle": "look",
+   "target": "sp",
+   "targetHandle": "cast"
+  }
+ ]
+}

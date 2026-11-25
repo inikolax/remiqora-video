@@ -6,7 +6,7 @@ import { videoModel } from './store'
 import { t as tx } from '../i18n'
 
 export interface NodeHelp { what: string; ports: string }   // the icon: graphDoc.ICON; {m} - the graph's model
-const HELP_TYPES = ['idea', 'hero', 'writer', 'song', 'clip_writer', 'prompt', 'photo', 'picture', 'scene', 'v2v', 'facefix', 'frame', 'sound', 'lora', 'join', 'montage', 'track',
+const HELP_TYPES = ['idea', 'hero', 'writer', 'song', 'clip_writer', 'pool_writer', 'series', 'screenplay', 'prompt', 'photo', 'picture', 'scene', 'v2v', 'facefix', 'frame', 'sound', 'lora', 'join', 'montage', 'beat_montage', 'track',
   'music', 'output', 'note', 'group']
 const NO_PORTS = ['note', 'group']
 // read through t() when read: the texts follow the interface's language (locales/nodes.ts what / ports)
@@ -127,6 +127,21 @@ export function nextStep(id: string): Next | null {
       if (st?.state === 'stale') return need(tx('nodes.next.writerStale'))
       if (!GE.nodes.some((x) => (x.data as any).from === id)) return need(tx('nodes.next.clipExpand'))
       return tip(tx('nodes.next.writerOk'))
+    case 'series':
+      if (!(d.title || '').trim() && !(d.world || '').trim()) return need(tx('screenplay.next.seriesTitle'))
+      if (!outs(id).length) return need(tx('screenplay.next.seriesLink'))
+      return tip(tx('screenplay.next.seriesOk'))
+    case 'screenplay':
+      if (!has(id, 'cast')) return need(tx('screenplay.next.playCast'))
+      if (!(d.text || '').trim()) return need(tx('screenplay.next.playText'))
+      if (!GE.nodes.some((x) => (x.data as any).from === id)) return need(tx('screenplay.next.playExpand'))
+      return tip(tx('screenplay.next.playOk'))
+    case 'pool_writer':
+      if (!has(id, 'song')) return need(tx('beat.next.song'))
+      if (!(d.pool || []).length) return need(tx('beat.next.write'))
+      if (st?.state === 'stale') return need(tx('nodes.next.writerStale'))
+      if (!GE.nodes.some((x) => (x.data as any).from === id)) return need(tx('beat.next.expand'))
+      return tip(tx('beat.next.ok'))
     case 'join': case 'montage':
       if (t === 'montage' && d.beats && !has(id, 'track')) return need(tx('nodes.next.montageBeats'))
       if (!has(id, 'clips')) return need(tx('nodes.next.joinClips'))
@@ -148,19 +163,26 @@ export function nextStep(id: string): Next | null {
 }
 
 // a new node next to the selected one: the first ports that fit, either way (the selected one's output into the new
-// one's input, or back) - so «Идея» then «Сценарист» comes linked
-export function fitLink(selId: string, t: string): { source: string; sourceHandle: string; target: string; targetHandle: string; after: boolean } | null {
+// one's input, or back) - so «Идея» then «Сценарист» comes linked. `before`: the new node feeding the selected one is tried first
+type FitLink = { source: string; sourceHandle: string; target: string; targetHandle: string; after: boolean }
+export function fitLink(selId: string, t: string, before = false): FitLink | null {
   const a = nodeOf(selId), spec = GE.types[t]
   if (!a || !spec) return null
   const as = GE.types[tOf(a)]
   // the new node's first input that takes one of the outputs (a Scene then «Видео → видео»: its clip, not its frame)
-  for (const [ip, s] of Object.entries(spec.in)) {
-    const op = Object.entries(as?.out || {}).find(([, ty]) => ty === s.type)
-    if (op) return { source: selId, sourceHandle: op[0], target: '', targetHandle: ip, after: true }
+  const fwd = (): FitLink | null => {
+    for (const [ip, s] of Object.entries(spec.in)) {
+      const op = Object.entries(as?.out || {}).find(([, ty]) => ty === s.type)
+      if (op) return { source: selId, sourceHandle: op[0], target: '', targetHandle: ip, after: true }
+    }
+    return null
   }
-  for (const [op, ty] of Object.entries(spec.out)) {
-    const ip = Object.entries(as?.in || {}).find(([p, s]) => s.type === ty && (s.multi || !inputsOf(selId, p).length))
-    if (ip) return { source: '', sourceHandle: op, target: selId, targetHandle: ip[0], after: false }
+  const back = (): FitLink | null => {
+    for (const [op, ty] of Object.entries(spec.out)) {
+      const ip = Object.entries(as?.in || {}).find(([p, s]) => s.type === ty && (s.multi || !inputsOf(selId, p).length))
+      if (ip) return { source: '', sourceHandle: op, target: selId, targetHandle: ip[0], after: false }
+    }
+    return null
   }
-  return null
+  return before ? back() || fwd() : fwd() || back()
 }

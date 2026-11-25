@@ -15,6 +15,8 @@ const entry = computed(() => {
   const h = S.help
   const sec = h && help().find((x) => x.id === h.section)
   if (!h || !sec) return null
+  // a field's own words: plain text, paragraphs on new lines
+  if (h.text) return { id: sec.id, section: sec.title, title: h.title || sec.title, body: h.text.split(/\r?\n/).map((x) => `<p>${x.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`).join('') }
   const box = document.createElement('div')
   box.innerHTML = sec.html
   let title = sec.title, body = ''

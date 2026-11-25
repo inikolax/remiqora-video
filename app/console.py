@@ -277,6 +277,8 @@ def _kinds() -> dict[str, tuple[str, str]]:
         "voice": (L("голос героя", "the hero's voice"), L("берёт голос", "taking a voice")),
         "draw": (L("портрет героя", "the hero's portrait"), L("рисует", "drawing")),
         "cast_tries": (L("пробы героя", "the hero's tries"), L("рисует пробы", "drawing tries")),
+        "actor_sheet": (L("лист актёра", "the actor's sheet"), L("рисует лист", "drawing the sheet")),
+        "actor_tries": (L("пробы актёра", "the actor's tries"), L("рисует пробы", "drawing tries")),
         "frame": (L("стартовые кадры", "start frames"), L("рисует кадры", "drawing frames")),
         "places": (L("места сцен", "the scenes' places"), L("ищет места", "grouping places")),
         "place": (L("кадры мест", "the places' pictures"), L("рисует места", "drawing places")),

@@ -64,6 +64,7 @@ function actText(j: Job | undefined, nq: number) {
   if (k === 'scene') return `<b>${h(j.params?.model_name || 'H3')}</b> · ${t('status.lab')} · ${j.phase === 'sampling' ? t('status.step', { step: j.step, steps: j.steps }) : t('status.preparing')}`
   if (k === 'take') return `<b>${who}</b> · ${t('status.takeOf', { n: h(Number(j.params?.scene ?? 0) + 1) })}` + step()
   if (k === 'voice') return `<b>Demucs</b> · ${t('status.voiceOf', { n: h(Number(j.params?.scene ?? 0) + 1) })} · ${secsOf()}`
+  if (k === 'actor_sheet' || k === 'actor_tries') return `<b>FLUX.2 Klein</b> · ${t('status.actor')}${pr.message ? ` · ${h(pr.message)}` : ''}${j.phase === 'sampling' && j.steps ? ` · ${t('status.step', { step: j.step, steps: j.steps })}` : ''}`
   if (k === 'cast_tries') return `<b>Krea 2</b> · ${t('status.castTries')}${pr.message ? ` · ${h(pr.message)}` : ''}${j.phase === 'sampling' && j.steps ? ` · ${t('status.step', { step: j.step, steps: j.steps })}` : ''}`
   if (k === 'draw') return `<b>Krea 2</b> · ${t('status.drawing')}${j.phase === 'sampling' && j.steps ? ` · ${t('status.step', { step: j.step, steps: j.steps })}` : ''}`
   if (k === 'frame' || k === 'unlike') return `<b>FLUX.2 Klein</b> · ${t('status.frames', { cur: pr.scene != null ? pr.scene + 1 : '…', done: pr.done || 0, all: h(pr.total || j.params?.scenes || '…') })}` + step()

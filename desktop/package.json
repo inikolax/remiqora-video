@@ -1,6 +1,6 @@
 {
   "name": "remiqora-video-desktop",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Remiqora Video: first-run setup (engine, tools, official model sets), the app in a window, installer",
   "author": "Nikolay Cherkashin",

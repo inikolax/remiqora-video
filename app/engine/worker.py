@@ -157,7 +157,10 @@ class Worker:
             if issues := self.problems():
                 raise EngineError("; ".join(issues))
             self.folders = model_folders()   # what it is told now; jobs.shoot restarts it when that changes
-            settings = {"input": str(config.COMFY_INPUT), "output": str(config.COMFY_OUTPUT), "folders": self.folders}
+            self.attention = config.COMFY_ATTENTION   # the same for the attention mode (the «Быстрое внимание» switch)
+            settings = {"input": str(config.COMFY_INPUT), "output": str(config.COMFY_OUTPUT), "folders": self.folders,
+                        "attention": config.COMFY_ATTENTION,
+                        "args": [*(["--use-ck-attention"] if config.COMFY_ATTENTION == "ck" else []), *config.COMFY_ARGS]}
             sfile = config.DATA_DIR / "h3worker.json"
             sfile.write_text(json.dumps(settings, ensure_ascii=False, indent=1), encoding="utf-8")
             log = open(config.WORKER_LOG, "w", encoding="utf-8", errors="replace")

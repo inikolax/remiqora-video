@@ -8,8 +8,8 @@ export default scenario('disk', 'Disk space',
   meta('A 5 s draft scene is about 2 MB, but every scene piles up takes, a draft and a final. Model weights take the most space — tens of gigabytes.')
   + steps(
     step('See what takes up space',
-      '<p>«Models and settings»: at the top, «Models on disk» — all weights in one bar with each model\'s color; on the left, next to each section, how much it takes.</p>'
-      + go('/models', 'Models and settings')),
+      '<p>«Settings»: at the top, «Models on disk» — all weights in one bar with each model\'s color; on the left, next to each section, how much it takes.</p>'
+      + go('/settings/models', 'Settings')),
     step('Open the video\'s folder',
       `<p>The «Video» screen → «Open folder». Each video is a folder <code>projects\\&lt;date-time-code&gt;</code> in the program folder:</p>`
       + '<ul><li><code>project.json</code> — the video itself: storyboard, montage, settings;</li>'
@@ -39,4 +39,4 @@ export default scenario('disk', 'Disk space',
   )
   + tip(`The program's <code>data</code> folder holds the settings (<code>settings.json</code>), speed measurements, your graph templates, logs and <code>songs</code> — the songs of clips, one per song for all clips made from it. Don't delete songs while clips made from them still exist.`)
   + tip('The DaVinci export and «Build storyboard» from a graph don\'t copy scenes; they create a hard link to the same file (on the same drive): it takes no extra space, but the space is freed only when all links are deleted. Empty the Windows Recycle Bin yourself — until then the space isn\'t freed either.')
-  + `<p class="note">Next: ${see('cache', 'Cache and time')} · ${see('models', 'Models and settings')} · ${see('env', 'Settings in .env')} · ${see('tut-fix-scene', 'Fix one scene')}</p>`, GROUP_EN)
+  + `<p class="note">Next: ${see('cache', 'Cache and time')} · ${see('models', 'Settings: models')} · ${see('env', 'Settings in .env')} · ${see('tut-fix-scene', 'Fix one scene')}</p>`, GROUP_EN)

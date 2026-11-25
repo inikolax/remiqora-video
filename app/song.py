@@ -166,6 +166,20 @@ def no_vocals(sid: str) -> Optional[Path]:
     return p
 
 
+def title_of(sid: str) -> str:
+    """The song's name as a clip title: no extension, no « - GENRE - take-sNN» tail ("Neon Samurai - PHONK - take-s42.wav"
+    -> "Neon Samurai")."""
+    name = re.sub(r"\.(wav|mp3|flac|ogg|m4a|aac|opus)$", "", name_of(sid).strip(), flags=re.I)
+    name = name.split(" - ")[0].strip() or name
+    # a file name, not a title: "Rooftop_Tango_short30" -> "Rooftop Tango" (underscores, a cut / take / version tail)
+    if "_" not in name:   # a name written with spaces is the title as given («Summer Mix 2», «The Final Cut»)
+        return name
+    clean = re.sub(r"_+", " ", name).strip()
+    while (cut := re.sub(r"\s+(?:short|cut|edit|take|ver|v|mix)[\s-]*\d+$", "", clean, flags=re.I)) != clean and cut.strip():
+        clean = cut   # every numbered tail: «Rooftop_Tango_short30_v2» -> «Rooftop Tango»
+    return re.sub(r"\s{2,}", " ", clean).strip() or name
+
+
 def public(sid: str) -> dict:
     """The song for the page: its parts, bars, the chorus and the words with their times, the loudness for the wave."""
     a = analysis(sid)
@@ -479,6 +493,25 @@ def timed_lines(rec: Optional[dict], text: str) -> list[dict]:
         by_line.setdefault(li, []).append(idx)
     return [{"start": round(min(times[k][0] for k in idxs), 3), "end": round(max(times[k][1] for k in idxs), 3),
              "text": mine_lines[li]} for li, idxs in by_line.items()]
+
+
+def timed_words(words: list[dict], written: str) -> list[dict]:
+    """The recognised words [{start, end, word, ...}] spelled as the written lyrics have them: aligned word by word
+    (difflib on the words without case, «ё» and punctuation), a word that matches - or that stands in the same place in
+    a replaced run of equal length - takes the written spelling. Times (and any other field) stay Whisper's; words the
+    text has no counterpart for stay as heard. [section] marks of the text are not words."""
+    if not words or not (written or "").strip():
+        return [dict(w) for w in words]
+    mine = re.findall(r"[\w']+", re.sub(r"\[[^\]]*\]", " ", written), re.UNICODE)
+    heard = [_norm(str(w["word"])) or f"\0{i}" for i, w in enumerate(words)]
+    wanted = [_norm(w) or f"\1{i}" for i, w in enumerate(mine)]
+    sm = difflib.SequenceMatcher(None, heard, wanted, autojunk=False)
+    fix: dict[int, str] = {}
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == "equal" or (tag == "replace" and i2 - i1 == j2 - j1):
+            for k in range(i2 - i1):
+                fix[i1 + k] = mine[j1 + k]
+    return [{**w, "word": fix.get(i, w["word"])} for i, w in enumerate(words)]
 
 
 def lines_in(ls: list[dict], start: float, end: float) -> list[dict]:

@@ -18,6 +18,7 @@ import GuideButton from '../components/help/GuideButton.vue'
 import HelpQ from '../components/HelpQ.vue'
 import ModelPick from '../components/ModelPick.vue'
 import ClipStart from '../components/ClipStart.vue'
+import BeatStart from '../components/BeatStart.vue'
 import GraphStart from '../components/GraphStart.vue'
 import LookPick from '../components/LookPick.vue'
 import SongStrip from '../components/SongStrip.vue'
@@ -31,6 +32,7 @@ import { dec, mmss } from '../lib/format'
 import { type LookChoice, formChoice, lookOf, toForm } from '../lib/looks'
 import { type RouteEstimate, type Step, type What, WHATS, fits, understand } from '../lib/home'
 import type { Song } from '../lib/types'
+import { B, checkBeatJob } from '../lib/beat'
 import HeroKind from '../components/board/HeroKind.vue'
 
 const router = useRouter()
@@ -88,10 +90,11 @@ const addAccept = computed(() => (song.value ? `${ACCEPT.photo},${ACCEPT.video}`
 // ---- «Поняли так» and «Не так? Изменить»
 const has = computed(() => ({ song: !!song.value, photo: !!photo.value, text: f.idea || '' }))
 const guessed = computed(() => understand(has.value.song, has.value.photo, has.value.text))
-const what = computed<What | ''>(() => (f.what && fits(f.what as What, has.value.song, has.value.photo, has.value.text) ? f.what as What : guessed.value))
+const what = computed<What | ''>(() => (f.what && f.what !== 'beat' && fits(f.what as What, has.value.song, has.value.photo, has.value.text) ? f.what as What : guessed.value))
 const options = computed(() => WHATS.filter((w) => fits(w, has.value.song, has.value.photo, has.value.text)))
 const menu = ref(false)
-const force = (w: What) => { set('what', w === guessed.value ? '' : w); menu.value = false }
+// «Бит-клип» is not a way of the box's own route: it opens its own form (BeatStart.vue), the song stays
+const force = (w: What) => { menu.value = false; if (w === 'beat') { panel.value = 'beat'; return } set('what', w === guessed.value ? '' : w) }
 const isClip = computed(() => what.value.startsWith('clip'))
 const menuEl = ref<HTMLElement | null>(null)
 const outside = (e: Event) => { if (menu.value && menuEl.value && !menuEl.value.contains(e.target as Node)) menu.value = false }
@@ -227,7 +230,7 @@ async function steps() {
 const fine = ref(false)
 const fineEl = ref<HTMLElement | null>(null)
 const openFine = () => { fine.value = true; requestAnimationFrame(() => fineEl.value?.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })) }
-const panel = ref<'' | 'manual' | 'clip'>('')
+const panel = ref<'' | 'manual' | 'clip' | 'beat'>(B.job ? 'beat' : '')   // a beat clip going on shows its bar
 const openPanel = (p: typeof panel.value) => { panel.value = panel.value === p ? '' : p }
 const manualName = ref('')
 const manualSecs = ref(30)
@@ -244,6 +247,7 @@ async function openManual() {
 let off: () => void
 onMounted(() => {
   loadProjects(); loadSong(f.song); off = onJobEnd(() => loadProjects())
+  if (B.job) checkBeatJob().then(() => { if (!B.job && panel.value === 'beat') panel.value = '' })   // the job is over or unknown: the form is not "going on"
   document.addEventListener('pointerdown', outside); document.addEventListener('keydown', esc)
 })
 onUnmounted(() => {
@@ -345,6 +349,7 @@ watch(() => f.song, (id) => { if (id && id !== song.value?.id) loadSong(id) })
         <div class="cr-actions">
           <button type="button" class="primary cr-make" :class="{ dim: !what }" :aria-disabled="!what || undefined" :disabled="busy || !!loading || (!!job && live(job))" @click="make"><Icon name="play" />{{ t('home.make') }}</button>
           <button type="button" class="btn cr-steps" :disabled="busy || !!loading" @click="steps"><Icon name="steps" />{{ t('home.steps') }}</button>
+          <button type="button" class="btn cr-beat" :aria-expanded="panel === 'beat'" :title="t('beat.openTitle')" @click="openPanel('beat')"><Icon name="wave" />{{ t('beat.open') }}</button>
           <div class="cr-note"><span>{{ !what ? t('home.nothing') : isClip ? t('home.makeNoteClip') : t('home.makeNote') }}</span>
             <span class="cr-links">
               <button v-if="what && !isClip" type="button" class="link-btn" :aria-expanded="fine" @click="fine ? (fine = false) : openFine()"><Icon name="sliders" :size="14" /> {{ fine ? t('home.fineFold') : t('home.fine') }}</button>
@@ -357,6 +362,7 @@ watch(() => f.song, (id) => { if (id && id !== song.value?.id) loadSong(id) })
       <div v-if="panel" class="start-form" :class="`is-${panel}`">
         <button type="button" class="link-btn sf-fold" @click="panel = ''"><Icon name="collapse" :size="14" />{{ t('home.fold') }}</button>
         <ClipStart v-if="panel === 'clip'" />
+        <BeatStart v-else-if="panel === 'beat'" />
         <template v-else>
           <div class="idea-head sf-head"><div class="title-row"><h1>{{ t('idea.how.manual') }}</h1><GuideButton guide="idea" /></div>
             <p>{{ t('idea.manualAbout') }}</p></div>

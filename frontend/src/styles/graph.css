@@ -135,6 +135,9 @@ body.graph .head { flex: none; }
 .ge-warn { display: flex; align-items: center; gap: 5px; margin: 8px 10px 0; font-size: 11.5px; color: var(--warn); }
 .ge-badges { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 10px 0; }
 .ge-badges span { font-size: 10.5px; padding: 2px 6px; border-radius: 5px; background: var(--bg); color: var(--soft); }
+/* the pool writer's own buttons on its card («Написать», «Развернуть») */
+.ge-acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 10px 0; }
+.ge-acts .btn { min-height: 30px; padding: 0 10px; font-size: 12px; }
 .ge-node footer { padding: 7px 10px 6px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ge-node footer.ok { color: var(--ok-hi); }
 .ge-node footer.todo { color: var(--accent-hi); }
@@ -219,8 +222,49 @@ body.graph .head { flex: none; }
 .ni .lines-box .ni-row .btn { flex: 1; }
 
 /* what a node is for, what to do next (lib/nodeHelp.ts) */
-.add-pop { max-height: min(70vh, 640px); overflow-y: auto; overscroll-behavior: contain; min-width: 330px;
-  scrollbar-width: thin; scrollbar-color: var(--rule-3) transparent; scrollbar-gutter: stable; }
+/* the add panel: search, what links to the selected node, the full list in three columns, the About strip, keys */
+.add-pop { width: min(680px, calc(100vw - 24px)); padding: 0; border-radius: 14px; box-shadow: 0 18px 50px rgba(0, 0, 0, .55); overflow-x: hidden;
+  max-height: calc(100vh - 90px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--rule-3) transparent; }
+.add-find { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
+.add-find svg { color: var(--muted); flex: none; }
+.add-find input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 15px; }
+.add-find:focus-within { box-shadow: inset 0 -2px 0 var(--accent); }
+.add-find kbd { font: inherit; font-size: 12px; color: var(--muted); border: 1px solid var(--rule-2); border-radius: 6px; padding: 1px 6px; }
+.add-fit { padding: 12px 14px; border-bottom: 1px solid var(--rule); background: linear-gradient(180deg, var(--accent-bg), transparent); }
+.add-fit-h { margin-bottom: 9px; color: var(--soft); font-weight: 600; }
+.add-fit-row, .add-recent { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.add-fit-row + .add-fit-row { margin-top: 7px; }
+.add-dir { width: 74px; flex: none; color: var(--muted); font-size: 12.5px; }
+.add-recent .add-dir { width: auto; margin-right: 4px; }
+.add-pop .add-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 8px; border-radius: 999px; border: 1px solid var(--rule-2); background: var(--deep); font-size: 13.5px; }
+.add-pop .add-pill:hover, .add-pop .add-pill.cur { border-color: var(--accent); background: var(--accent-deep); }
+.add-ic { flex: none; display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; }
+.add-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 6px 6px 8px; }
+.add-cols.flat { grid-template-columns: 1fr; }
+.add-col h3 { margin: 6px 10px 4px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.add-pop .add-it { width: 100%; min-height: 32px; padding: 5px 10px; gap: 9px; }
+.add-pop .add-it:hover, .add-pop .add-it.cur { background: var(--hover); }
+.add-pop .add-it.cur { outline: 1px solid var(--rule-3); }
+.add-nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.add-it.off .add-nm { color: var(--faint); }
+.add-nm mark { background: none; color: var(--accent-hi); font-weight: 600; }
+.add-none { margin: 0; padding: 18px 16px; color: var(--muted); }
+.add-about { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 12px; padding: 12px 14px; border-top: 1px solid var(--rule); background: var(--deep); min-height: 92px; }
+.add-big { grid-row: span 2; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: var(--panel); border: 1px solid var(--rule-2); }
+.add-about b { font-weight: 600; }
+.add-about p { margin: 0; color: var(--soft); font-size: 13.5px; line-height: 1.4; }
+.add-ports { grid-column: 2; display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12.5px; }
+.add-ports i { font-style: normal; color: var(--soft); }
+.add-foot { display: flex; align-items: center; gap: 14px; padding: 9px 14px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 12.5px; }
+.add-tools { margin-left: auto; display: flex; gap: 4px; }
+.add-pop .add-tools button { white-space: nowrap; border: 1px solid var(--rule-2); padding: 4px 10px; font-size: 12.5px; color: var(--soft); }
+.add-pop .add-tools button:hover { border-color: var(--rule-3); }
+.add-pop button:focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
+@media (max-width: 640px) {
+  .add-cols { grid-template-columns: 1fr; }
+  .add-dir { width: 100%; }
+  .add-keys { display: none; }
+}
 .tm-hint { font-size: 12px; color: var(--muted); padding: 6px 10px 4px; line-height: 1.4; }
 .tm-pop .tm-node { align-items: flex-start; gap: 10px; padding: 7px 10px; }
 .tm-pop .tm-node.on { background: var(--hover); box-shadow: inset 2px 0 0 var(--accent); }
@@ -251,3 +295,10 @@ body.graph .head { flex: none; }
 
 /* «Видео → видео» without a background: a checkerboard behind the transparent clip */
 .ni-img.ni-alpha { background: repeating-conic-gradient(#8884 0 25%, #0000 0 50%) 0 0 / 16px 16px; }
+/* the canvas thumbnail's «open big» (ImageZoom), in sight on hover or keyboard focus */
+.ge-zoom { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px;
+  background: rgba(10, 10, 16, .72); color: var(--text); cursor: zoom-in; opacity: 0; transition: opacity .12s; }
+.ge-node:hover .ge-zoom, .ge-zoom:focus-visible { opacity: 1; }
+.ge-zoom:hover { background: var(--accent-deep); }
+.ni-img.zoomable { cursor: zoom-in; }
+@media (hover: none) { .ge-zoom { opacity: 1; } }

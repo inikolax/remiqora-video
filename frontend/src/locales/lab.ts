@@ -73,7 +73,7 @@ export default {
     library: 'Библиотека LoRA', find: 'Найти LoRA', reread: 'Перечитать папку', openLoraFolder: 'Открыть папку с LoRA',
     nothing: 'Ничего не нашлось.', allInUse: 'Все LoRA уже в работе.', or: 'или',
     emptyH3: 'Папка пуста. Положите LoRA для H3 (.safetensors) в {dirs}: список обновится сам.',
-    emptyOther: 'LoRA для {name} нет. Её папка — в «Модели и настройки» → {name}: положите туда .safetensors, список обновится сам.',
+    emptyOther: 'LoRA для {name} нет. Её папка — в «Настройки» → {name}: положите туда .safetensors, список обновится сам.',
     // the footer of the bench
     countTitle: 'Сколько дублей снять подряд: сид +1 у каждого', fewer: 'Меньше дублей', howMany: 'Сколько дублей', more: 'Больше дублей',
     compareTitle: 'Тот же промт и сид на H3, LTX 2.5, LTX 2.3 и WAN — по дублю на каждой, подписаны моделью',
@@ -191,7 +191,7 @@ export default {
     library: 'LoRA library', find: 'Find LoRA', reread: 'Re-read the folder', openLoraFolder: 'Open the LoRA folder',
     nothing: 'Nothing found.', allInUse: 'All LoRA are already in use.', or: 'or',
     emptyH3: 'The folder is empty. Put LoRA for H3 (.safetensors) into {dirs}: the list updates by itself.',
-    emptyOther: 'No LoRA for {name}. Its folder is in «Models and settings» → {name}: put .safetensors there, the list updates by itself.',
+    emptyOther: 'No LoRA for {name}. Its folder is in «Settings» → {name}: put .safetensors there, the list updates by itself.',
     countTitle: 'How many takes to shoot in a row: seed +1 for each', fewer: 'Fewer takes', howMany: 'How many takes', more: 'More takes',
     compareTitle: 'The same prompt and seed on H3, LTX 2.5, LTX 2.3 and WAN — one take on each, labelled with the model',
     compare: 'Shoot on all models to compare',

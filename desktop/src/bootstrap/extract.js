@@ -3,6 +3,7 @@ const { execFile } = require('node:child_process');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
 const { IS_WINDOWS } = require('../paths');
+const { renameRetry } = require('./download');
 
 /**
  * The system bsdtar reads both .zip and .tar.gz: tar.exe ships with Windows 10 1803+ and macOS.
@@ -35,7 +36,7 @@ async function extractAtomic(archive, destDir, options) {
   await extract(archive, tmp, options);
   await fsp.rm(destDir, { recursive: true, force: true });
   await fsp.mkdir(path.dirname(destDir), { recursive: true });
-  await fsp.rename(tmp, destDir);
+  await renameRetry(tmp, destDir);
 }
 
 module.exports = { extract, extractAtomic, tarBinary };

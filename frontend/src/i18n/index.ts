@@ -2,7 +2,7 @@
 // picks one in the header, kept in the browser. The strings live in locales/<area>.ts, each `{ ru: {...}, en: {...} }`,
 // and are found as t('<area>.<key>') - one file per area, so areas can be translated side by side. The server is told
 // the language too (api.ts's X-Lang, and /api/lang for jobs running in the background); the texts' language (ideas,
-// scenes, the translator's) is another setting, on «Модели и настройки».
+// scenes, the translator's) is another setting, on «Настройки».
 import { createI18n } from 'vue-i18n'
 
 export type LocaleCode = 'ru' | 'en'

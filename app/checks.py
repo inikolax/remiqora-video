@@ -141,6 +141,45 @@ def mute(motion: Optional[float]) -> bool:
     return motion is not None and motion < MUTE_MOTION
 
 
+def audio_lips(video: Path, audio: Path, audio_from: float, n_frames: int, fps: float = 24.0) -> Optional[dict]:
+    """An H3 scene drawn under a given sound (graphs.scene `audio`): how much the lips move where the sound is voiced and
+    where it is silent - {voiced, silent, ratio, mute}; the proven shot moved the lips 3.2x more in the voiced frames.
+    Non-blocking, a number for the page: None when it can't be judged (no face, under a second of voice or of pause)."""
+    try:
+        voice = voice_frames(audio, [], audio_from, n_frames, fps, (audio_from, audio_from + n_frames / fps))
+        if not voice:
+            return None
+        v = lip_motion(video, n_frames, voice, fps)
+        s = lip_motion(video, n_frames, [not x for x in voice], fps)
+        if v is None and s is None:
+            return None
+        out: dict = {"voiced": None if v is None else round(v, 4), "silent": None if s is None else round(s, 4), "mute": mute(v)}
+        if v is not None and s:
+            out["ratio"] = round(v / s, 2)
+        return out
+    except Exception:  # noqa: BLE001 - a check is a bonus, never a blocker
+        return None
+
+
+def save_lips(video: Path, lips: Optional[dict]) -> None:
+    side = video.with_suffix(".lips.json")
+    try:
+        if lips:
+            side.write_text(json.dumps(lips), encoding="utf-8")
+        else:
+            side.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def saved_lips(video: Path) -> Optional[dict]:
+    try:
+        d = json.loads(video.with_suffix(".lips.json").read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # Phase 10, stage A: the clip's checks (remiqora-video render/checks.py) - what needed a person watching the draft.
 #   black  - (near) black frames;  frozen - the picture stops moving for a while (the model stalled);
@@ -349,13 +388,32 @@ def _still_detector():
     return cv2.FaceDetectorYN_create(_yunet(), "", (320, 320), score_threshold=FACE_MIN_SCORE)
 
 
+def imread(path, flags: int = 1):
+    """cv2.imread that works for non-ASCII paths on Windows (plain cv2.imread returns None there): None when unreadable."""
+    import cv2
+    try:
+        data = np.fromfile(str(path), np.uint8)
+    except OSError:
+        return None
+    return cv2.imdecode(data, flags) if data.size else None
+
+
+def imwrite(path, img) -> bool:
+    """cv2.imwrite that works for non-ASCII paths on Windows; the format comes from the file's extension."""
+    import cv2
+    ok, buf = cv2.imencode(Path(path).suffix or ".png", img)
+    if ok:
+        buf.tofile(str(path))
+    return bool(ok)
+
+
 def face_picture(path: Path) -> tuple[Optional[tuple[int, int, int, int]], Optional[tuple[int, int]]]:
     """A photo's one confident face (x, y, w, h in its pixels) and the photo's size: (None, size) when there is no face
     or more than one (a group: which face is whose?), (None, None) when it can't be read. The photo is the one
     cv2.imread returns, EXIF rotation and all - the same picture render.fit_frame crops."""
     try:
         import cv2
-        img = cv2.imread(str(path))
+        img = imread((path))
     except Exception:  # noqa: BLE001 - a crop is a bonus, never a blocker
         return None, None
     if img is None:
@@ -378,7 +436,7 @@ def face_similarity(video: Path, reference: Path) -> Optional[float]:
     """SFace cosine of the reference's face and the clip's last frame's face; None when not judged."""
     try:
         import cv2
-        ref = cv2.imread(str(reference))
+        ref = imread((reference))
         a = _face_feature(ref) if ref is not None else None
         if a is None:
             return None
@@ -408,7 +466,7 @@ def hero_similarity(video: Path, portrait: Path) -> Optional[float]:
     None when the portrait has none or fewer than FACE_SEEN frames do."""
     try:
         import cv2
-        ref = cv2.imread(str(portrait))
+        ref = imread((portrait))
         a = _face_feature(ref) if ref is not None else None
         if a is None:
             return None
@@ -431,7 +489,7 @@ def heroes_similarity(video: Path, portraits: list[Path]) -> Optional[float]:
         import cv2
         refs = []
         for p in portraits:
-            im = cv2.imread(str(p))
+            im = imread((p))
             a = _face_feature(im) if im is not None else None
             if a is not None:
                 refs.append(a)
@@ -501,6 +559,60 @@ def check_clip(video: Path, reference: Optional[Path] = None, hero: Optional[Pat
     except OSError:
         pass
     return problems
+
+
+# The beat clip's `still`: EVERY scene is judged, not only those with people - the renderer
+# cuts a 3 s shot on the beat and a frozen one is a hole. Lines by framing, motion = the median frame-to-frame difference
+# at WIDTH (the same measure as STILL_DIFF). The 31 accepted scenes of clips 54-56 (2026-11-06, H3 final, 73 frames)
+# moved: macro 2.2-27 (median 4.7), medium 2.3-19 (6.5), wide 1.15-11 (3.9); the lowest are a pyro fountain at 1.15, sparks
+# 1.52 and rain of sparks 1.68. A line at 0.4-0.7 of the lowest of each framing keeps all of them and flags a picture that
+# barely lives (a frozen take measures < 0.3: FROZEN_DIFF is 0.25)
+BEAT_STILL = {"macro": 1.0, "close": 1.0, "medium": 1.5, "wide": 0.8}
+
+
+# Per model of the beat clip's scenes (beat_models.MODELS). H3's are the measured lines above.
+# LTX 2.5 moves about three times less than H3 (live test 2026-11-07, same pool «Neon Samurai», final: median motion 1.57 vs
+# 4.68, the calmest accepted LTX scene 0.77): half of H3's lines, still above a frozen take (< FROZEN_DIFF 0.25 + margin)
+BEAT_STILL_BY_MODEL = {"h3": BEAT_STILL, "ltx25": {"macro": 0.5, "close": 0.5, "medium": 0.75, "wide": 0.4}}
+MIN_MEASURED = 8   # frames left after the pre-roll is cut: fewer than that - the whole scene is measured
+
+
+def beat_still_line(framing: Optional[str], model: Optional[str] = None) -> float:
+    lines = BEAT_STILL_BY_MODEL.get(model or "h3", BEAT_STILL)
+    return lines.get(framing or "", lines["medium"])
+
+
+def scene_still(video: Path, framing: Optional[str] = None, model: Optional[str] = None) -> dict:
+    """{motion, line, still} for a beat clip's scene of this framing and model; `still` True below the line. The scene's pre-roll
+    (beat_models.preroll: the first frames of an i2v scene stand still) is not measured. A scene that can't be read
+    gives motion None and still False (an unreadable file is not a reason to reshoot it again)."""
+    try:
+        frames, fps = load_gray(video)
+        mo = motion(measure(_after_preroll(frames, fps, model)))
+    except Exception:  # noqa: BLE001
+        mo = None
+    line = beat_still_line(framing, model)
+    return {"motion": None if mo is None else round(mo, 3), "line": line, "still": mo is not None and mo < line}
+
+
+def _after_preroll(frames: np.ndarray, fps: float, model: Optional[str]) -> np.ndarray:
+    from . import beat_models
+    k = int(round(beat_models.preroll(model) * fps))
+    return frames[k:] if len(frames) - k >= MIN_MEASURED else frames
+
+
+def best_take(videos: list[Path], avoid=(), model: Optional[str] = None) -> Optional[Path]:
+    """The most moving of several takes of a scene (the biggest median motion); the first when they are equal, None when
+    none is readable. `avoid`: takes with a fault the caller found (a face on a faceless hero) - a take outside it always
+    beats one inside it, however much it moves; when all are in it, the most moving of them."""
+    avoid = set(avoid)
+    pool = [v for v in videos if v not in avoid] or list(videos)
+    best, best_mo = None, -1.0
+    for v in pool:
+        mo = scene_still(v, model=model)["motion"]
+        if mo is not None and mo > best_mo:
+            best, best_mo = v, mo
+    return best
 
 
 def saved(video: Path) -> Optional[list[dict]]:

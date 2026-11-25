@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The header, one band: the brand; the rail - which video and its stages with their state (ProjectRail); what the
 // video card is doing (StatusBar, a pill with its panel); the pages; the interface's language (RU | EN, as in
-// Remiqora). The writer's model is chosen on «Модели и настройки» → «Сценарист» and shown in the footer.
+// Remiqora). The writer's model is chosen on «Настройки» → «Сценарист» and shown in the footer; the gear opens «Настройки».
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -33,7 +33,7 @@ function pickLocale(next: LocaleCode) {
       <StatusBar />
       <nav class="pages" :aria-label="t('header.section')">
         <router-link v-if="view === 'lab'" to="/" class="nav-ic" :title="t('header.studioTitle')"><Icon name="film" /><span>{{ t('header.studio') }}</span></router-link>
-        <router-link to="/models" class="gear nav-ic" :title="t('header.modelsTitle')"><Icon name="gear" /><span>{{ t('header.models') }}</span></router-link>
+        <router-link to="/settings" class="gear nav-ic" :title="t('header.settingsTitle')"><Icon name="gear" /><span>{{ t('header.settings') }}</span></router-link>
         <router-link v-if="view !== 'lab'" to="/lab" class="nav-ic" :title="t('header.labTitle')"><Icon name="flask" /><span>{{ t('header.lab') }}</span></router-link>
         <!-- the app's help window (Remiqora's way); the full reference is a button inside it and at #/help -->
         <button type="button" class="nav-ic" :title="t('header.helpTitle')" @click.stop="S.guide = 'app'"><Icon name="help" /><span>{{ t('header.help') }}</span></button>

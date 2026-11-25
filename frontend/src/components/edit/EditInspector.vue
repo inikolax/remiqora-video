@@ -402,7 +402,7 @@ defineExpose({ upload })
     <div v-if="buildState === 'error'" class="warn-line"><Icon name="warn" :size="14" /><span>{{ v?.error }}</span></div>
     <div v-else-if="v && v.to_shoot" class="warn-line"><Icon name="warn" :size="14" /><span>{{ t('edit.notShotScenes', v.to_shoot) }}</span></div>
     <!-- «built by this montage» is said once, by the chip in the bar -->
-    <div v-else-if="buildState !== 'building'" class="warn-line"><Icon name="warn" :size="14" /><span>{{ v?.built ? t('edit.builtOld') : t('edit.notBuilt') }}</span></div>
+    <div v-else-if="buildState === 'old' || buildState === 'none'" class="warn-line"><Icon name="warn" :size="14" /><span>{{ v?.built ? t('edit.builtOld') : t('edit.notBuilt') }}</span></div>
     <div v-if="jumps.length" class="stack ei-jumps"><span class="lbl">{{ t('edit.jumps', jumps.length) }}</span>
       <div class="ei-acts"><button v-for="j in jumps" :key="j.id" type="button" class="btn" @click="ED.sel = SEAM + j.id"><Icon name="warn" />{{ tc(j.start) }} · {{ j.name }}</button></div></div>
     <p v-if="graph" class="muted small">{{ t('edit.graphHint') }}</p>

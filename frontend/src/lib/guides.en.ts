@@ -33,7 +33,7 @@ export const GUIDES_EN: Record<string, Guide> = {
       { title: 'Where things are stored', icon: 'folder', items: [
         'Videos are in the <code>projects</code> folder: the storyboard, the shot scenes, the finished files. You can close the page mid-work and the result is saved.',
         'Every shot scene sits in the cache under a key made of everything that defines it. Change nothing and the scene is taken instantly.',
-        'Model weights, LoRA and tools are on the «Models and settings» page. The writer is a model from LM Studio\'s downloads, chosen in the header.',
+        'Model weights, LoRA and tools are on the «Settings» page. The writer is a model from LM Studio\'s downloads, chosen in the header.',
       ] },
     ],
     tips: [
@@ -357,7 +357,7 @@ export const GUIDES_EN: Record<string, Guide> = {
         '«Rewrite outdated» runs all such nodes in one job, so the model loads once.',
       ] },
       { title: 'Templates and JSON', icon: 'layers', items: [
-        '«Templates» above the canvas: 18 built-in ones, from «Idea → writer → video» to «Film» for two, with a thumbnail of the graph and a note on what to do first; on the home, «Or build it on the canvas» also starts from a template, in one click.',
+        '«Templates» above the canvas: 22 built-in ones, from «Idea → writer → video» to «Film» for two, with a thumbnail of the graph and a note on what to do first; on the home, «Or build it on the canvas» also starts from a template, in one click.',
         '«Save as template» and «Download as JSON»: the selected nodes or the whole graph; «Load from JSON»: the file becomes your template.',
         'Photos, tracks and the writer\'s output don\'t go into a template, only nodes, links and texts.',
       ] },
@@ -431,16 +431,16 @@ export const GUIDES_EN: Record<string, Guide> = {
   },
 
   models: {
-    title: 'Help: models and settings', icon: 'gear',
+    title: 'Help: settings — models', icon: 'gear',
     lead: 'Weights of the video models (H3, LTX, WAN), Krea 2 and the writer, LoRA and tools. Everything is saved at once, no restart needed; a file you put in place by hand shows up on the page by itself.',
     steps: [
       { title: 'Open a model', text: 'What it can do, how long a scene takes here, the license and the weights by role; each shows where its file is.' },
       { title: 'Download what you need', text: 'In the background, one at a time; «Stop» and «Resume» from the same point.' },
-      { title: 'Choose the writer', text: 'Default model, context, folders with GGUF.' },
-      { title: 'Tools', text: 'The ComfyUI engine, Python, ffmpeg, RIFE, RTX Video: «Choose…» opens a Windows dialog, «As in .env» restores from the file.' },
+      { title: 'Choose the writer', text: 'Default model and folders with GGUF; the context is under «Settings».' },
+      { title: 'Tools and folders', text: 'The ComfyUI engine, Python, ffmpeg, RIFE, RTX Video: on the «Settings» page.' },
     ],
     map: { cols: 'minmax(7rem, 26%) minmax(0, 1fr)', areas: ['nav card'], zones: [
-      { area: 'nav', title: 'Sections', text: 'H3 video, Ref2VA, LTX 2.5, LTX 2.3, WAN 2.2 5B, Krea 2, writer, LoRA, tools.' },
+      { area: 'nav', title: 'Sections', text: 'H3 video, Ref2VA, LTX 2.5, LTX 2.3, WAN 2.2 5B, Krea 2, writer, LoRA.' },
       { area: 'card', title: 'The section\'s files', text: 'Name, size, where from (Hugging Face) and where to; «Download», «Use», «Remove» (to the Recycle Bin).', accent: true, deco: 'rows' },
     ] },
     sections: [
@@ -461,7 +461,18 @@ export const GUIDES_EN: Record<string, Guide> = {
     ],
     tips: ['The «where from» link on each file is its page on Hugging Face.'],
     limits: ['The H3 and Ref2VA files are 20 GB each: check your disk space before downloading.'],
-    more: [{ id: 'models', title: 'Models and settings' }, { id: 'env', title: 'Settings in .env' }],
+    more: [{ id: 'models', title: 'Settings: models' }, { id: 'env', title: 'Settings in .env' }],
+  },
+  settings: {
+    title: 'Help: settings — general', icon: 'gear',
+    lead: 'What is shared by the whole app: the engine, folders and tools, the writer, the language. Everything is saved at once. Parameters of a single model are on its model card.',
+    steps: [
+      { title: 'Engine', text: 'Fast attention speeds up H3 and WAN 5B; it does not affect the other models.' },
+      { title: 'Folders and tools', text: '«Choose…» opens a Windows dialog, «As in .env» restores the value from the file.' },
+      { title: 'Writer', text: 'Default model, context and the text language.' },
+    ],
+    tips: ['Each field has its own «?» with a short explanation.'],
+    more: [{ id: 'settings', title: 'Settings: general' }, { id: 'models', title: 'Settings: models' }, { id: 'env', title: 'Settings in .env' }],
   },
 }
 

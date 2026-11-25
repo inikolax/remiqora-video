@@ -6,7 +6,8 @@ import Icon from '../Icon.vue'
 import { KINDS, KIND_ICON } from '../../lib/consts'
 
 const { t } = useI18n()
-const props = defineProps<{ modelValue?: string; compact?: boolean }>()
+// `faceless` adds «Без лица» (a beat clip's hero, graph projects only)
+const props = defineProps<{ modelValue?: string; compact?: boolean; faceless?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [kind: string] }>()
 const cur = () => props.modelValue || 'person'
 </script>
@@ -17,7 +18,9 @@ const cur = () => props.modelValue || 'person'
       <option v-for="[k, v] in KINDS" :key="k" :value="k">{{ v }}</option></select></label>
   <span v-else class="chips" role="radiogroup" :aria-label="t('board.cast.kind')">
     <button v-for="[k, v] in KINDS" :key="k" type="button" role="radio" class="chip" :class="{ on: cur() === k }" :aria-checked="cur() === k" @click="emit('update:modelValue', k)">
-      <Icon :name="KIND_ICON[k]" :size="16" />{{ v }}</button></span>
+      <Icon :name="KIND_ICON[k]" :size="16" />{{ v }}</button>
+    <button v-if="faceless" type="button" role="radio" class="chip" :class="{ on: cur() === 'faceless' }" :aria-checked="cur() === 'faceless'" @click="emit('update:modelValue', 'faceless')">
+      <Icon :name="KIND_ICON.faceless" :size="16" />{{ t('beat.hero.faceless') }}</button></span>
 </template>
 
 <style scoped>

@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from . import config, edit, graph, graph_io, i18n, jobs, picture, projects, timings, videomodels
@@ -142,6 +142,7 @@ def nodes_run(pid: str, req: RunRequest):
 class LlmRequest(BaseModel):
     ids: list[str]
     model: Optional[str] = None
+    action: str = "write"            # «Сценарий»: write («Написать сценарий») | recap («Добавить в "Ранее"») | expand (translate, then «Развернуть в шоты»)
 
 
 @router.post("/api/projects/{pid}/nodes/llm")
@@ -153,6 +154,8 @@ def nodes_llm(pid: str, req: LlmRequest):
     todo = [graph.node(g, i) for i in req.ids if graph.node(g, i) and graph.node(g, i)["type"] in graph.LLM_BUTTONS]
     if not todo:
         raise HTTPException(400, i18n.L("Нет узлов сценариста, героя или промта", "No writer, hero or prompt nodes"))
+    if req.action not in ("write", "recap", "expand"):
+        raise HTTPException(400, i18n.L("Неизвестное действие", "Unknown action"))
     try:
         m = llm.find(req.model)
     except llm.LLMError as e:
@@ -162,7 +165,7 @@ def nodes_llm(pid: str, req: LlmRequest):
     if (photos or any(n["type"] == "hero" for n in todo)) and not m.mmproj:   # the clip writer reads the hero's photo
         raise HTTPException(400, i18n.L(f"Модель {m.name} не видит картинок: выберите другую в шапке",
                                           f"Model {m.name} can't see pictures: choose another one in the header"))
-    n_writers = sum(1 for n in todo if n["type"] == "writer")
+    n_writers = sum(1 for n in todo if n["type"] in ("writer", "screenplay"))
     # a clip writer writes every scene of the piece (~ one per 4 s of it), as the button's «сценарий» stage
     clip_s, n_clip = 0.0, 0
     for n in todo:
@@ -171,8 +174,15 @@ def nodes_llm(pid: str, req: LlmRequest):
             k = max(1, round(((graph.evaluate_node(c, s["id"]).seconds if s else 0) or 60) / 4))
             clip_s, n_clip = clip_s + timings.writer_seconds(m.name, k, 10 + 4 * k), n_clip + 1
     return jobs.submit_task("graph-llm", {"project": pid, "ids": [n["id"] for n in todo], "model": m.id},
-                            lambda job: graph.run_llm(job, pid, [n["id"] for n in todo], m.id),
+                            lambda job: graph.run_llm(job, pid, [n["id"] for n in todo], m.id, req.action),
                             estimate=15 + 25 * (len(todo) - n_writers - n_clip) + 40 * n_writers + clip_s).public()
+
+
+def _expand_job(pid: str, nid: str, edited: str = "keep") -> dict:
+    """«Развернуть в шоты» of a screenplay that needs translating: the same job as «Написать сценарий» (one model load)."""
+    m = llm.find(None)
+    return {"job": jobs.submit_task("graph-llm", {"project": pid, "ids": [nid], "model": m.id},
+                                    lambda job: graph.run_llm(job, pid, [nid], m.id, "expand", edited), estimate=40).public()}
 
 
 class ExpandRequest(BaseModel):
@@ -185,6 +195,21 @@ def nodes_expand(pid: str, req: ExpandRequest):
     _project(pid)
     if req.edited not in ("ask", "keep", "replace"):
         raise HTTPException(400, i18n.L("Неизвестный выбор", "Unknown choice"))
+    w = graph.node(graph.load(pid), req.node)
+    if w and w["type"] == "screenplay" and graph.screenplay_missing(pid, req.node):
+        # Russian places / actions without English: the studio's writer translates them first - an LLM job that expands
+        # when it is done (no LLM at all: expand now, the prompts say «проверь перевод»)
+        try:
+            if req.edited == "ask":   # shots the user changed: the page asks before the job runs, not after
+                names = graph.screenplay_edited(pid, req.node)
+                if names:
+                    raise graph.Edited(names)
+            return _expand_job(pid, req.node, req.edited)
+        except llm.LLMError:
+            pass
+        except graph.Edited as e:
+            raise HTTPException(409, {"message": i18n.L("Эти узлы вы меняли после «Развернуть в шоты»", "You changed these nodes after «Expand into shots»"),
+                                      "edited": e.names}) from e
     try:
         return graph.expand(pid, req.node, req.edited)
     except graph.Edited as e:   # the page asks: keep the user's changes or make those nodes again
@@ -192,6 +217,17 @@ def nodes_expand(pid: str, req: ExpandRequest):
                                   "edited": e.names}) from e
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+
+
+@router.get("/api/projects/{pid}/nodes/{nid}/srt")
+def nodes_srt(pid: str, nid: str, names: bool = False):
+    """«Экспорт .srt» of a «Сценарий»: the lines' subtitles timed by the shots in order."""
+    _project(pid)
+    try:
+        text = graph.screenplay_srt(pid, nid, names)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return Response(text, media_type="application/x-subrip; charset=utf-8", headers={"Content-Disposition": 'attachment; filename="screenplay.srt"'})
 
 
 class SongPick(BaseModel):

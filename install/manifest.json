@@ -87,7 +87,8 @@
       "writer",
       "krea",
       "flux2",
-      "ref2va"
+      "ref2va",
+      "ref2va768"
     ],
     "all": [
       "h3",
@@ -95,6 +96,7 @@
       "krea",
       "flux2",
       "ref2va",
+      "ref2va768",
       "ltx25",
       "ltx23",
       "wan"
@@ -111,6 +113,7 @@
         {
           "repo": "Comfy-Org/MiniMax-H3",
           "path": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "rev": "54472221d27c695fca9621b0c3ed52f06c4af707",
           "kind": "diffusion_models",
           "bytes": 20970379616,
           "sha256": "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
@@ -118,6 +121,7 @@
         {
           "repo": "Comfy-Org/MiniMax-H3",
           "path": "loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+          "rev": "54472221d27c695fca9621b0c3ed52f06c4af707",
           "kind": "loras",
           "bytes": 1956193000,
           "sha256": "2339acdf19bfe123f46b971ea35d367a84adb85de43627e1eceafa5a5b2b111e"
@@ -125,6 +129,7 @@
         {
           "repo": "Comfy-Org/MiniMax-H3",
           "path": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "rev": "54472221d27c695fca9621b0c3ed52f06c4af707",
           "kind": "text_encoders",
           "bytes": 15687142551,
           "sha256": "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6"
@@ -132,6 +137,7 @@
         {
           "repo": "Comfy-Org/MiniMax-H3",
           "path": "vae/minimax_h3_video_vae_fp16.safetensors",
+          "rev": "54472221d27c695fca9621b0c3ed52f06c4af707",
           "kind": "vae",
           "bytes": 5207808496,
           "sha256": "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522"
@@ -139,6 +145,7 @@
         {
           "repo": "Comfy-Org/MiniMax-H3",
           "path": "vae/minimax_h3_audio_vae_fp32.safetensors",
+          "rev": "54472221d27c695fca9621b0c3ed52f06c4af707",
           "kind": "vae",
           "bytes": 605254808,
           "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
@@ -159,6 +166,7 @@
         {
           "repo": "ggml-org/gemma-4-E4B-it-GGUF",
           "path": "gemma-4-E4B-it-Q8_0.gguf",
+          "rev": "a69f018d7678a2b9f5e705f8903d6fb29b9b25dc",
           "kind": "llm",
           "bytes": 8031242688,
           "sha256": "34be82b17b4942d389b9b527170c4b058027abdd32531fda063d3d97dd8ce80a"
@@ -166,6 +174,7 @@
         {
           "repo": "ggml-org/gemma-4-E4B-it-GGUF",
           "path": "mmproj-gemma-4-E4B-it-Q8_0.gguf",
+          "rev": "a69f018d7678a2b9f5e705f8903d6fb29b9b25dc",
           "kind": "llm",
           "bytes": 559874816,
           "sha256": "197f49a93027f9843772bd24a6a9e0be2a32a788de5a3def330e9c585d86edd1"
@@ -183,6 +192,7 @@
         {
           "repo": "Comfy-Org/Krea-2",
           "path": "diffusion_models/krea2_turbo_int8_convrot.safetensors",
+          "rev": "588feaf955b08b9ac4723eeb751752ab045dba71",
           "kind": "diffusion_models",
           "bytes": 13492686496,
           "sha256": "8e4eeda70dd5037ab1ba2bef6b417f9f901e26093117cf397f741fc1fdaaf3f1"
@@ -190,6 +200,7 @@
         {
           "repo": "Comfy-Org/Krea-2",
           "path": "text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+          "rev": "588feaf955b08b9ac4723eeb751752ab045dba71",
           "kind": "text_encoders",
           "bytes": 5242467968,
           "sha256": "54bd5144df0bbc25dd6ccadfcb826b521445a1b06ae5a42570bdd2974ca87094"
@@ -197,6 +208,7 @@
         {
           "repo": "Comfy-Org/Krea-2",
           "path": "vae/qwen_image_vae.safetensors",
+          "rev": "588feaf955b08b9ac4723eeb751752ab045dba71",
           "kind": "vae",
           "bytes": 253806246,
           "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f"
@@ -214,6 +226,7 @@
         {
           "repo": "Comfy-Org/Flux-2-Klein-4B",
           "path": "split_files/diffusion_models/flux-2-klein-4b.safetensors",
+          "rev": "5b3abca5c0dc1ecd4eaf3340868d09063fc1c965",
           "kind": "diffusion_models",
           "bytes": 7751105712,
           "sha256": "ec3d4e733a771f61c052fb4856c48b336c55eaf2c65487c2a1faeb9bbda7a343"
@@ -221,6 +234,7 @@
         {
           "repo": "Comfy-Org/z_image_turbo",
           "path": "split_files/text_encoders/qwen_3_4b_fp8_mixed.safetensors",
+          "rev": "6fc90a3b1b653e935a0d175e260736de25b84df5",
           "kind": "text_encoders",
           "bytes": 5631994051,
           "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
@@ -228,6 +242,7 @@
         {
           "repo": "Comfy-Org/Flux-2-Klein-4B",
           "path": "split_files/vae/flux2-vae.safetensors",
+          "rev": "5b3abca5c0dc1ecd4eaf3340868d09063fc1c965",
           "kind": "vae",
           "bytes": 336211292,
           "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
@@ -248,6 +263,7 @@
         {
           "repo": "Comfy-Org/MiniMax-H3",
           "path": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "rev": "54472221d27c695fca9621b0c3ed52f06c4af707",
           "kind": "diffusion_models",
           "bytes": 20970379616,
           "sha256": "9255f52b6677845ad238f20dfaafa94727053694127ab7f255c048f0f9365779"
@@ -255,12 +271,34 @@
         {
           "repo": "Comfy-Org/MiniMax-H3",
           "path": "loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+          "rev": "54472221d27c695fca9621b0c3ed52f06c4af707",
           "kind": "loras",
           "bytes": 1956193000,
           "sha256": "5b9ab5ade15d0775676d01a907268a69a1468dc6033b3b0d3ded5502f3ebb84c"
         }
       ],
       "bytes": 22926572616
+    },
+    "ref2va768": {
+      "title": "Ref2VA 768p (faces at final size)",
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://github.com/ModelTC/Minimax-H3-Turbo"
+      },
+      "needs": [
+        "ref2va"
+      ],
+      "files": [
+        {
+          "repo": "lightx2v/Minimax-h3-Turbo",
+          "path": "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+          "rev": "745a0e425c54c9032a126bb0a85fe703503bb1ab",
+          "kind": "loras",
+          "bytes": 1956193000,
+          "sha256": "e56863a7524e0300729cbb7b64cc8b548d90698c1abbf7d83898b0122fbe1e81"
+        }
+      ],
+      "bytes": 1956193000
     },
     "ltx25": {
       "title": "LTX 2.5",
@@ -318,6 +356,7 @@
         {
           "repo": "Lightricks/LTX-2.3-fp8",
           "path": "ltx-2.3-22b-dev-fp8.safetensors",
+          "rev": "91eda216f820e5ecb3d17dc9fe3b7cdaf56b587d",
           "kind": "checkpoints",
           "bytes": 29145431166,
           "sha256": "28606c5b5a06ce56f896d4dfcb20f212739e07a68fbe48e53638188449d26450"
@@ -325,6 +364,7 @@
         {
           "repo": "Comfy-Org/ltx-2",
           "path": "split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors",
+          "rev": "ccde4ba417d7900669fd56dd292a883cee11ff37",
           "kind": "text_encoders",
           "bytes": 9447702218,
           "sha256": "aaca463d11e6d8d2a4bdb0d6299214c15ef78a3f73e0ef8113d5a9d0219b3f6d"
@@ -332,6 +372,7 @@
         {
           "repo": "Comfy-Org/ltx-2.3",
           "path": "split_files/loras/ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors",
+          "rev": "f20f3a54378001e5e6d642acc84719cc78addf4b",
           "kind": "loras",
           "bytes": 2741024390,
           "sha256": "31e0c0195fb841bf31af78e8b60858f489e87ddcea4a5239abc80943da65e3ac"
@@ -339,6 +380,7 @@
         {
           "repo": "Lightricks/LTX-2.3",
           "path": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+          "rev": "c1521179de480464f366a98a9d9b2acc4cc097b9",
           "kind": "latent_upscale_models",
           "bytes": 995743560,
           "sha256": "5f416311fa8172b65af67530758964708d29a317b830d689a51143b7f91913ed"
@@ -356,6 +398,7 @@
         {
           "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
           "path": "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors",
+          "rev": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
           "kind": "diffusion_models",
           "bytes": 9999658848,
           "sha256": "456f901338bd9eadbded3828b819109a9b68e8a525ca5cf8d0049a69fcfeca1e"
@@ -363,6 +406,7 @@
         {
           "repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
           "path": "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+          "rev": "123acf1cc74bccbb9bfff8ac1ee72edc08c2341d",
           "kind": "text_encoders",
           "bytes": 6735906897,
           "sha256": "c3355d30191f1f066b26d93fba017ae9809dce6c627dda5f6a66eaa651204f68"
@@ -370,6 +414,7 @@
         {
           "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
           "path": "split_files/vae/wan2.2_vae.safetensors",
+          "rev": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
           "kind": "vae",
           "bytes": 1409400960,
           "sha256": "e40321bd36b9709991dae2530eb4ac303dd168276980d3e9bc4b6e2b75fed156"
@@ -377,6 +422,7 @@
         {
           "repo": "Kijai/WanVideo_comfy",
           "path": "FastWan/Wan2_2_5B_FastWanFullAttn_lora_rank_128_bf16.safetensors",
+          "rev": "8260d429d19fd7a72304cad059160b95d843913f",
           "kind": "loras",
           "bytes": 660874456,
           "sha256": "79290493711b022e1c6e655d803715cd8a91a75cdb139856cad46f354e2f681c"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// #/models «Модели и настройки» (phase 6, after Remiqora's Models page): the weights by role, where each lies and where
-// it comes from, downloads one at a time, the writer's models, the folders, the tools. The page re-reads the server
+// #/settings/:section «Настройки» (phase 6, after Remiqora's Models page; 2026-11-08 merged with the old general
+// settings page): «Общие» (components/SettingsGeneral.vue), where the models run, then the weights by role, where each lies
+// and where it comes from, downloads one at a time, the writer's models, the folders, the tools. The page re-reads the server
 // every 10 s (1.5 s while a file downloads), so a file put into a folder by hand shows up by itself.
 // Phase 10: LTX 2.5, LTX 2.3 and WAN 2.2 5B are sections like H3's - what the model can do, its speed here, its license,
 // its weights by role. 2026-10-28: the nav is a tree of groups (Видео / Фото / Сценарист / Общее), every model's card
@@ -12,21 +13,20 @@ import Icon from '../components/Icon.vue'
 import FolderList from '../components/FolderList.vue'
 import GuideButton from '../components/help/GuideButton.vue'
 import CloudPanel from '../components/CloudPanel.vue'
+import SettingsGeneral from '../components/SettingsGeneral.vue'
 import { api, post } from '../lib/api'
 import { S, banner, keep, loadLlms, loadLoras } from '../lib/store'
 import { gb, mins } from '../lib/format'
-import { currentLocale } from '../i18n'
-import { setTextLang as setTL } from '../lib/textLang'
 
 const { t, locale } = useI18n()
 const props = defineProps<{ section?: string }>()
 // the tree: [group, [[key, the name (a key of models.sec, or a name as is), icon]]]; Ref2VA is a sub-item of H3
 const GROUPS: [string, [string, string, string][]][] = [
+  ['general', [['general', '', 'gear']]],   // «Общие»: the app-wide settings, above everything
   ['where', [['cloud', '', 'cloud']]],   // «Где работают модели»: this computer, a rented server, the user's own (CloudPanel)
   ['video', [['h3', '', 'film'], ['ltx25', 'LTX 2.5', 'clapper'], ['ltx23', 'LTX 2.3', 'music'], ['wan5b', 'WAN 2.2 5B', 'image']]],
   ['photo', [['krea', '', 'brush'], ['flux2', '', 'spark']]],
   ['writer', [['llm', '', 'spark']]],
-  ['common', [['tools', '', 'wrench']]],
 ]
 const KEYS = GROUPS.flatMap(([, xs]) => xs.map(([k]) => k)).concat('ref')
 const secName = (k: string, name: string) => name || t(`models.sec.${k}`)
@@ -54,7 +54,7 @@ const caps = computed(() => {
 // where this model runs now: the rented card in the cloud, the own server, or this computer
 const runs = computed(() => {
   const w = snap.value?.where
-  if (!w || sel.value === 'tools' || sel.value === 'cloud') return null
+  if (!w || sel.value === 'cloud' || sel.value === 'general') return null
   if (w.mode === 'cloud') return { icon: 'cloud', text: w.gpu ? `${w.gpu} · ${w.provider}` : t('cloud.navSub.cloud'), title: t('models.runsCloud') }
   if (w.mode === 'server') return { icon: 'link', text: w.host || t('cloud.navSub.server'), title: t('models.runsServer') }
   return { icon: 'film', text: t('cloud.navSub.local'), title: t('models.runsLocal') }
@@ -80,11 +80,16 @@ const askDel = ref<string | null>(null)
 // H3 is optional: no section asked for - the first video model that has its files (H3, LTX 2.5, LTX 2.3, WAN), else H3's card
 const VIDEO = ['h3', 'ltx25', 'ltx23', 'wan5b']
 const firstInstalled = computed(() => { const s = snap.value?.sections; return (s && VIDEO.find((k) => s[k]?.gb && s[k].ok)) || 'h3' })
-const sel = computed(() => (KEYS.includes(props.section || '') && !['lora', 'ref'].includes(props.section!) ? props.section! : firstInstalled.value))
+// no section, or the old «tools» / «settings» ones: «Общие»; «models» (and an unknown one): the first installed video model
+const sel = computed(() => {
+  const p = props.section || ''
+  if (!p || p === 'tools') return 'general'
+  return KEYS.includes(p) && !['lora', 'ref'].includes(p) ? p : firstInstalled.value
+})
 // H3's row counts Ref2VA and the H3 LoRA with it (they are its parts on the card)
-const rowGb = (k: string) => { const s = snap.value!.sections; if (k === 'cloud') return 0; return k === 'h3' ? (s.h3.gb || 0) + (s.ref.gb || 0) + (s.lora.gb || 0) : s[k].gb }
+const rowGb = (k: string) => { const s = snap.value!.sections; if (k === 'cloud' || k === 'general') return 0; return k === 'h3' ? (s.h3.gb || 0) + (s.ref.gb || 0) + (s.lora.gb || 0) : s[k].gb }
 // on the cloud disk Ref2VA is a set of its own (often not deployed): the H3 row is whole with H3's files, Ref2VA shows inside
-const rowOk = (k: string) => { const s = snap.value!.sections; if (k === 'cloud') return true; return k === 'h3' ? s.h3.ok && (s.ref.ok || !!snap.value!.cloud_files) : s[k].ok }
+const rowOk = (k: string) => { const s = snap.value!.sections; if (k === 'cloud' || k === 'general') return true; return s[k].ok }   // H3 without Ref2VA works (the «h3» profile has no ref2va): Ref2VA's own tab carries its dot
 // a video model with no file at all is «не установлена · добавить» (not red: it is not broken, it was never added); half there stays red
 const rowAbsent = (k: string) => { const s = snap.value!.sections; return VIDEO.includes(k) && !s[k]?.gb && !(k === 'h3' && (s.ref.gb || s.lora.gb)) }
 const sec = computed(() => snap.value?.sections[sel.value])
@@ -116,7 +121,7 @@ const hfToken = ref('')
 const TABS = computed(() => {
   const s = sec.value
   if (!s) return []
-  return [['weights', WEIGHTS.includes(sel.value) || sel.value === 'llm'], ['ref', sel.value === 'h3'], ['params', !!s.params?.length || sel.value === 'llm'],
+  return [['weights', WEIGHTS.includes(sel.value) || sel.value === 'llm'], ['ref', sel.value === 'h3'], ['params', !!s.params?.length],
     ['lora', sel.value === 'h3' || !!s.loras]].filter(([, on]) => on).map(([k]) => k as string)
 })
 const TAB_KEY = 'rv.models.tabs'
@@ -225,14 +230,7 @@ function schedule() {
   timer = setTimeout(async () => { if (!typing()) await load(); schedule() }, snap.value?.downloading ? 1500 : 10000)
 }
 watch(() => !!snap.value?.downloading, schedule)
-// the texts' language (app/i18n.py): ideas, scene texts, the translator's both ways
-const textLang = ref<{ text: string; langs: { code: string; name: string; en?: string }[] } | null>(null)
-async function loadLang() { try { textLang.value = await api('/api/lang') } catch { /* the page works without it */ } }
-async function setTextLang(code: string) {
-  try { textLang.value = await api('/api/lang', { method: 'PUT', body: { text: code } }); setTL(code); banner(t('textlang.saved', { v: textLang.value!.langs.find((x) => x.code === code)?.name || code }), 'info') }
-  catch (e) { banner((e as Error).message) }
-}
-onMounted(async () => { loadLang(); await load(); schedule() })
+onMounted(async () => { await load(); schedule() })
 onUnmounted(() => clearTimeout(timer))
 
 // one weight file: what it is, where it lies or would go, where it comes from
@@ -248,7 +246,7 @@ function row(f: Record<string, any>) {
     <p v-if="!snap && !err" class="muted">{{ t('models.checking') }}</p>
     <div v-else-if="!snap" class="warn-line"><Icon name="warn" :size="14" />{{ err || t('models.readFailed') }}</div>
     <template v-else>
-      <div class="models-head"><div><div class="title-row"><h1>{{ t('models.title') }}</h1><GuideButton guide="models" /></div>
+      <div class="models-head"><div><div class="title-row"><h1>{{ t('models.title') }}</h1><GuideButton :guide="sel === 'general' ? 'settings' : 'models'" /></div>
           <p class="muted">{{ t('models.intro') }}</p>
           <button v-if="desktop?.addSets" type="button" class="btn" :title="t('models.addSetsTitle')" @click="desktop.addSets()"><Icon name="download" :size="14" />{{ t('models.addSets') }}</button></div>
         <div class="disk"><b>{{ gbs(snap.gb) }}</b><span class="lbl">{{ t('models.onDisk') }}</span>
@@ -257,14 +255,15 @@ function row(f: Record<string, any>) {
       <div v-if="err" class="warn-line" role="alert"><Icon name="warn" :size="14" />{{ err }}</div>
       <div class="models-grid">
         <nav class="m-nav" :aria-label="t('models.sections')">
-          <!-- a group of one model is that model's row (the writer, the tools); a group of several gets a quiet title with its size -->
+          <!-- a group of one model is that model's row (the writer); a group of several gets a quiet title with its size -->
           <template v-for="[g, items] in GROUPS" :key="g">
-            <div v-if="g === 'where'" class="m-group"><span>{{ t('cloud.nav') }}</span></div>
-            <div v-else-if="g !== 'common'" class="m-group"><span>{{ t(`models.group.${g}`) }}</span><small>{{ groupGb(g) ? gbs(groupGb(g)) : '' }}</small></div>
-            <hr v-else class="m-rule">
+            <template v-if="g === 'general'" />
+            <div v-else-if="g === 'where'" class="m-group"><span>{{ t('cloud.nav') }}</span></div>
+            <div v-else class="m-group"><span>{{ t(`models.group.${g}`) }}</span><small>{{ groupGb(g) ? gbs(groupGb(g)) : '' }}</small></div>
             <template v-for="[k, nm] in items" :key="k">
-              <router-link :to="`/models/${k}`" :class="{ on: k === sel, plain: g === 'common' }">
-                <span v-if="k === 'cloud'" class="m-where"><Icon :name="whereIcon" :size="15" /><span>{{ t(`cloud.navSub.${snap.engine_mode || 'local'}`) }}<template v-if="snap.where?.provider"> · {{ snap.where.provider }}</template>
+              <router-link :to="`/settings/${k}`" :class="{ on: k === sel }">
+                <span v-if="k === 'general'" class="m-where"><Icon name="gear" :size="15" /><span>{{ t('settings.general') }}</span></span>
+                <span v-else-if="k === 'cloud'" class="m-where"><Icon :name="whereIcon" :size="15" /><span>{{ t(`cloud.navSub.${snap.engine_mode || 'local'}`) }}<template v-if="snap.where?.provider"> · {{ snap.where.provider }}</template>
                   <small class="sub-t">{{ whereLine }}</small></span></span>
                 <span v-else>{{ k === 'llm' ? llmName : secName(k, nm) }}<small v-if="k === 'krea' || k === 'flux2'" class="sub-t">{{ t(`models.sub.${k}`) }}</small></span>
                 <small class="m-size" :class="{ bad: !rowOk(k) && !rowAbsent(k) }" :title="rowOk(k) ? t('models.allThere') : t('models.missing')">{{ rowOk(k) ? (rowGb(k) ? gbs(rowGb(k)) : '') : rowAbsent(k) ? t('models.notInstalled') : t(snap!.cloud_files ? 'models.noFilesCloud' : 'models.noFiles') }}</small></router-link>
@@ -272,7 +271,8 @@ function row(f: Record<string, any>) {
           </template>
         </nav>
         <section class="m-card">
-          <CloudPanel v-if="sel === 'cloud'" />
+          <SettingsGeneral v-if="sel === 'general'" />
+          <CloudPanel v-else-if="sel === 'cloud'" />
           <template v-else>
           <!-- the head: the model, its state, what it is for -->
           <template v-if="sel === 'h3'">
@@ -299,10 +299,6 @@ function row(f: Record<string, any>) {
             <div class="m-title"><h2>{{ t('models.sec.llm') }}</h2><span v-if="runs" class="m-runs" :title="runs.title"><Icon :name="runs.icon" :size="14" />{{ runs.text }}</span><span v-if="!sec.server_ok" class="warn-line"><Icon name="warn" :size="14" />{{ t('models.noServer', { v: sec.server }) }}</span></div>
             <p class="muted">{{ snap.cloud_files ? t('models.llmCloud') : t('models.llmText') }}</p>
           </template>
-          <template v-else-if="sel === 'tools'">
-            <div class="m-title"><h2>{{ t('models.sec.tools') }}</h2></div>
-            <p class="muted">{{ t('models.toolsText') }}</p>
-          </template>
           <!-- what the model is: always in sight, above the tabs -->
           <div v-if="specs.length || caps.length || license" class="m-plate">
             <dl v-if="specs.length" class="m-specs">
@@ -321,16 +317,6 @@ function row(f: Record<string, any>) {
               :class="{ on: k === tab }" @click="openTab(k)">{{ t(`models.tab.${k}`) }}
               <i v-if="tabMark(k).bad" class="m-dot" :class="snap.cloud_files ? 'away' : 'bad'" :title="snap.cloud_files ? t('models.noFilesCloud') : t('models.missing')" /><small v-else-if="tabMark(k).n">{{ tabMark(k).n }}</small></button>
           </div>
-
-          <!-- a path row: every tool -->
-          <div v-for="tl in (sel === 'tools' ? sec.tools : [])" :key="tl.key" class="w-row path-row">
-            <div class="w-main"><b><i class="m-dot" :class="tl.ok ? 'ok' : 'bad'" :title="tl.ok ? t('models.found') : t('models.notFound')" /> {{ tl.name }}</b>
-              <span class="w-meta">{{ tl.text }}{{ tl.ok ? '' : ' · ' + t('models.notFound') }}</span>
-              <input class="field-in mono" :value="tl.path" spellcheck="false" :aria-label="t('models.pathAria', { name: tl.name })" @change="setting({ [tl.key]: val($event) })">
-              <span v-if="tl.own" class="w-meta">{{ t('models.ownHere', { v: tl.default }) }}</span></div>
-            <div class="w-acts"><button type="button" class="btn" @click="pick(tl)">{{ t('models.choose') }}</button>
-              <button v-if="tl.own" type="button" class="ghost" :title="t('models.asEnvTitle')" @click="setting({ [tl.key]: '' })">{{ t('models.asEnv') }}</button>
-              <button v-if="!(tl.kind === 'command' && !/[\\/]/.test(tl.path))" type="button" class="ghost" :title="t('common.openFolder')" :aria-label="t('common.openFolder')" @click="open(tl.path)"><Icon name="folder" /></button></div></div>
 
           <!-- Веса / Ref2VA: the weights by role; the file in use first, the spare ones folded away -->
           <div v-for="sg in slotGroups.filter((g) => g.id === tab)" :key="sg.id" class="m-sec" role="tabpanel">
@@ -406,21 +392,18 @@ function row(f: Record<string, any>) {
                   @save="(l) => setting({ LLM_DIRS: l })" @add="addFolder('LLM_DIRS', sec.dirs)" @open="open" />
               </details>
             </div>
-            <div v-if="tab === 'params'" class="m-sec" role="tabpanel">
-              <div class="row2"><label class="stack"><span class="lbl">{{ t('models.context') }}</span><select class="field-in" :value="sec.ctx" @change="setting({ LLM_CTX: +val($event) })">
-                <option v-for="c in sec.contexts" :key="c" :value="c">{{ t('models.tokens', { n: c.toLocaleString(currentLocale() === 'ru' ? 'ru-RU' : 'en-US') }) }}</option></select></label>
-                <label v-if="textLang" class="stack"><span class="lbl">{{ t('textlang.label') }}</span><select class="field-in" :value="textLang.text" @change="setTextLang(val($event))">
-                  <option v-for="l in textLang.langs" :key="l.code" :value="l.code">{{ currentLocale() === 'en' ? l.en || l.name : l.name }}</option></select></label></div>
-              <p class="muted small">{{ t('textlang.hint') }}</p>
-            </div>
           </template>
 
           <!-- Параметры: a model's numbers (settings.NUMBERS), saved at once -->
           <div v-if="tab === 'params' && sec.params && sec.params.length" class="m-sec" role="tabpanel">
             <p class="muted">{{ t('models.paramsText') }}</p>
+            <p v-if="sel === 'h3'" class="muted small"><router-link to="/settings/general">{{ t('settings.attentionMoved') }}</router-link></p>
             <div class="m-params">
               <label v-for="p in sec.params" :key="p.key"><span class="lbl">{{ p.title }}</span>
-                <span class="row-inline"><input class="field-in" type="number" :aria-label="p.name || p.key" :min="p.min" :max="p.max" :step="p.step" :value="p.value" @change="setParam(p, val($event))">
+                <span v-if="p.kind === 'switch'" class="row-inline"><input type="checkbox" :aria-label="p.title" :checked="p.value" @change="setting({ [p.key]: ($event.target as HTMLInputElement).checked })">
+                  <span class="muted small">{{ p.value ? t('models.switchOn') : t('models.switchOff') }}</span>
+                  <button v-if="p.own" type="button" class="ghost" :title="t('models.switchDefault', { v: p.default ? t('models.switchOn') : t('models.switchOff') })" @click="setting({ [p.key]: '' })">{{ t('models.reset') }}</button></span>
+                <span v-else class="row-inline"><input class="field-in" type="number" :aria-label="p.name || p.key" :min="p.min" :max="p.max" :step="p.step" :value="p.value" @change="setParam(p, val($event))">
                   <button v-if="p.own" type="button" class="ghost" :title="t('models.paramDefault', { v: fmt(p.default) })" @click="setting({ [p.key]: '' })">{{ t('models.reset') }}</button></span>
                 <span class="muted small p-text">{{ p.text }}</span></label>
             </div>

@@ -236,7 +236,11 @@ def clean_line(ln: dict) -> Optional[dict]:
     who = (ln.get("who") or "").strip() if isinstance(ln.get("who"), str) else ""
     if not text:
         return None
-    return {"who": who or "The main character", "text": text.replace('"', "”"), "how": ln.get("how") if ln.get("how") in HOW else ""}
+    out = {"who": who or "The main character", "text": text.replace('"', "”"), "how": ln.get("how") if ln.get("how") in HOW else ""}
+    own = ln.get("audio")   # the line's own sound (a graph's «Промт»: an uploaded or recorded file of the project; a scene is drawn under it)
+    if isinstance(own, str) and own.strip() and "/" not in own and "\\" not in own and not own.startswith("."):
+        out["audio"] = own.strip()
+    return out
 
 
 PERSON = re.compile(r"\b(?:an?|the)\s+(?:[\w-]+\s+){0,3}?(woman|man|lady|person)\b", re.I)
@@ -393,7 +397,8 @@ _SMALL = re.compile(r"\b[a-zа-яё]+\b")   # the words written small (no re.I)
 
 # rules_v 4: a cast entry is a person (no `kind` = a person: older plans), an animal, a robot or a creature (a fantasy /
 # cartoon being, a toy); what a picture must keep the same for each
-KIND_KEEP = {"animal": "fur, markings and face", "robot": "shape, materials and lights", "creature": "body, skin and markings"}
+KIND_KEEP = {"animal": "fur, markings and face", "robot": "shape, materials and lights", "creature": "body, skin and markings",
+             "faceless": "mask or hood, clothes and silhouette"}   # faceless: the beat clip's hero (hero.FACELESS_PRESETS)
 
 
 def kind_of(c: Optional[dict]) -> str:

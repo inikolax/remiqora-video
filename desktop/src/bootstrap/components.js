@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { downloadFile, withRetries } = require('./download');
+const { downloadFile, withRetries, renameRetry } = require('./download');
 const { extract, extractAtomic } = require('./extract');
 const { runCommand, cleanEnv, appVersion } = require('../proc');
 const { setStatus, withNeeds } = require('./sets');
@@ -59,7 +59,7 @@ async function moveContents(from, to) {
   await fsp.mkdir(to, { recursive: true });
   for (const name of await fsp.readdir(from)) {
     await fsp.rm(path.join(to, name), { recursive: true, force: true });
-    await fsp.rename(path.join(from, name), path.join(to, name));
+    await renameRetry(path.join(from, name), path.join(to, name));
   }
 }
 
@@ -185,7 +185,7 @@ function buildComponents({ L, manifest, resources, selection }) {
         await fsp.rm(archive, { force: true });
       }
       await fsp.rm(L.llama, { recursive: true, force: true });
-      await fsp.rename(tmp, L.llama);
+      await renameRetry(tmp, L.llama);
     },
   };
 

@@ -63,7 +63,7 @@ async function checkHfToken(token) {
     const denied = [];
     for (const id of gated) {
       const f = manifest.sets[id].files[0];
-      const res = await get(`https://huggingface.co/${f.repo}/resolve/main/${f.path}`, 'HEAD');
+      const res = await get(`https://huggingface.co/${f.repo}/resolve/${f.rev || 'main'}/${f.path}`, 'HEAD');
       if (res.status === 401 || res.status === 403) denied.push(id);
       else if (res.status >= 400) return { ok: false, code: 'network', detail: `${f.repo}: HTTP ${res.status}` };
     }

@@ -28,7 +28,8 @@ const SCREENS = computed(() => [
     to: project.value?.plan && project.value.type !== 'graph' ? `/p/${project.value.id}/video` : null },
   { guide: 'graph-edit', icon: 'layers', title: t('helpui.scr.graph.title'), text: t('helpui.scr.graph.text'), to: null },
   { guide: 'lab', icon: 'flask', title: t('helpui.scr.lab.title'), text: t('helpui.scr.lab.text'), to: '/lab' },
-  { guide: 'models', icon: 'gear', title: t('helpui.scr.models.title'), text: t('helpui.scr.models.text'), to: '/models' },
+  // one screen; its «Справка экрана» opens the settings guide, the models guide is the page's own «?» on a model card
+  { guide: 'settings', icon: 'gear', title: t('helpui.scr.settings.title'), text: t('helpui.scr.settings.text'), to: '/settings' },
 ])
 function go(to: string) { close(); router.push(to) }
 </script>

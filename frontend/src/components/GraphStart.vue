@@ -3,7 +3,7 @@
 // there (an empty canvas, the user's two newest, then the built-in ones in their order, each drawn small, «Все
 // шаблоны»). One click on a card makes the graph and opens its canvas; the frame, the model and an optional name stand
 // above the cards. «Все шаблоны» opens the templates window (search, JSON, deleting one's own).
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Icon from './Icon.vue'
@@ -15,7 +15,7 @@ import { list, preview, type Tpl } from '../lib/templates'
 import type { VideoModel } from '../lib/types'
 
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const f = S.form
 const set = (k: keyof typeof f, v: any) => { (f as any)[k] = v; keep() }
 
@@ -25,7 +25,10 @@ const builtin = computed(() => all.value.filter((x) => !x.own))
 // six cards besides the empty canvas and «Все шаблоны»: two rows of four on a wide screen
 const row = computed(() => [...[...own.value].sort((a, b) => (b.saved || 0) - (a.saved || 0)).slice(0, 2), ...builtin.value].slice(0, 6))
 const pics = computed(() => Object.fromEntries(row.value.map((x) => [x.id, preview(x)])))
-onMounted(async () => { try { all.value = await list() } catch (e) { banner((e as Error).message) } })
+const load = async () => { try { all.value = await list() } catch (e) { banner((e as Error).message) } }
+onMounted(load)
+// the built-in templates have an English twin: after RU ↔ EN the cards (and the graph a click makes) in the new language
+watch(locale, load)
 
 const name = ref('')
 const aspect = computed(() => (['16:9', '9:16', '1:1'].includes(f.aspect) ? f.aspect : '16:9'))

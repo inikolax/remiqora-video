@@ -79,7 +79,7 @@ export default {
     part: { intro: 'вступление', groove: 'куплет', break: 'брейк', drop: 'дроп', outro: 'концовка', chorus: 'припев' },
     pick: {
       label: 'Модель видео', sound: 'свой звук', noSound: 'без звука', lines: 'реплики', faces: 'лица по фото', track: 'под трек',
-      upTo: 'до {s} с', noWeights: 'нет весов', install: 'Установить', none: 'Нет ни одной видеомодели. Установите хотя бы одну, чтобы снимать:', download: 'Скачать недостающие веса — «Модели и настройки»',
+      upTo: 'до {s} с', noWeights: 'нет весов', install: 'Установить', none: 'Нет ни одной видеомодели. Установите хотя бы одну, чтобы снимать:', download: 'Скачать недостающие веса — «Настройки»',
     },
     voice: {
       noMic: 'Нет доступа к микрофону: разрешите его браузеру', file: 'Мой голос',
@@ -165,7 +165,7 @@ export default {
     part: { intro: 'intro', groove: 'verse', break: 'break', drop: 'drop', outro: 'outro', chorus: 'chorus' },
     pick: {
       label: 'Video model', sound: 'own sound', noSound: 'no sound', lines: 'lines', faces: 'faces from photos', track: 'to a track',
-      upTo: 'up to {s} s', noWeights: 'no weights', install: 'Install', none: 'No video model is installed. Install at least one to shoot:', download: 'Download the missing weights — «Models and settings»',
+      upTo: 'up to {s} s', noWeights: 'no weights', install: 'Install', none: 'No video model is installed. Install at least one to shoot:', download: 'Download the missing weights — «Settings»',
     },
     voice: {
       noMic: 'No access to the microphone: allow it in the browser', file: 'My voice',

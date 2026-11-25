@@ -255,12 +255,12 @@ def layout(text: str) -> str:
 
 
 async def translate(text: str, seconds: float = 5, model_id: Optional[str] = None, seed: int = 1,
-                    video: Optional[str] = None, frame: bool = False, target: str = "video") -> dict:
+                    video: Optional[str] = None, frame: bool = False, target: str = "video", extra: str = "") -> dict:
     """`video`: the lab's model, whose form the prompt takes; `frame`: the shot starts from a picture (H3 and LTX hold
     it and get what happens, WAN only the motion and the camera); `target`: "picture" - the prompt goes to a «Картинка» node (Krea 2), a still."""
     client.use_lang(i18n.text_name())   # the texts' language (i18n)
     async with client.session(model_id) as llm:
-        d = await llm.chat_json(_system(video, f"{seconds:g}", frame, target), text.strip(), SCHEMA, temperature=0.2, seed=seed, max_tokens=3000, step="translate")
+        d = await llm.chat_json(_system(video, f"{seconds:g}", frame, target) + extra, text.strip(), SCHEMA, temperature=0.2, seed=seed, max_tokens=3000, step="translate")
         en = str(d.get("prompt_en", ""))
         return {"en": layout(en) if form(video, target) == "h3" else re.sub(r"\s+", " ", en).strip(), "model": llm.model.name}
 

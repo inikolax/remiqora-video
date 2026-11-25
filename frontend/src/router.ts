@@ -2,12 +2,12 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import IdeaView from './views/IdeaView.vue'
 import BoardView from './views/BoardView.vue'
 import VideoView from './views/VideoView.vue'
-import ModelsView from './views/ModelsView.vue'
 import HelpView from './views/HelpView.vue'
 import LabView from './views/LabView.vue'
+import SettingsView from './views/SettingsView.vue'
 
 // The hash URLs of the page before Vue, kept: #/ the idea and your videos, #/p/<id> the storyboard, #/p/<id>/video
-// the shooting, #/p/<id>/graph the storyboard as a graph (phase 9), #/models, #/help/<section>; the lab moved from /lab to #/lab (the server redirects the old address).
+// the shooting, #/p/<id>/graph the storyboard as a graph (phase 9), #/settings/<section> (general settings, where the models run, the models; the old #/models/<section> redirects here), #/help/<section>; the lab moved from /lab to #/lab (the server redirects the old address).
 const router = createRouter({
   history: createWebHashHistory(),
   // a new screen opens at its top; the help scrolls to its section itself
@@ -23,7 +23,9 @@ const router = createRouter({
     { path: '/p/:id/graph', name: 'graph', component: () => import('./views/GraphView.vue'), props: true },
     // a graph project (phase 9): its own canvas, editable
     { path: '/g/:id', name: 'gedit', component: () => import('./views/GraphEditView.vue'), props: true },
-    { path: '/models/:section?', name: 'models', component: ModelsView, props: true },
+    { path: '/settings/:section?', name: 'settings', component: SettingsView, props: true },
+    // the old «Модели» page: its sections moved under settings; a bare /models opens the first installed video model
+    { path: '/models/:section?', redirect: (to) => `/settings/${to.params.section || 'models'}` },
     { path: '/help/:section?', name: 'help', component: HelpView, props: true },
     { path: '/lab', name: 'lab', component: LabView },
     { path: '/:rest(.*)*', redirect: '/' },

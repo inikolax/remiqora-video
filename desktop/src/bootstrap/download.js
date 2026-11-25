@@ -6,6 +6,27 @@ const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 
+const HELD = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+/**
+ * fsp.rename that waits while an antivirus or an indexer holds a freshly written file (EPERM/EBUSY/EACCES on Windows).
+ * Backoff 0.5 s doubling up to 5 s, about `totalMs` in all; then the last error goes out.
+ */
+async function renameRetry(from, to, { totalMs = 45000, firstMs = 500, signal } = {}) {
+  let waited = 0;
+  let pause = firstMs;
+  for (;;) {
+    try {
+      return await fsp.rename(from, to);
+    } catch (err) {
+      if (!HELD.has(err.code) || waited >= totalMs) throw err;
+      await sleep(pause, signal);
+      waited += pause;
+      pause = Math.min(pause * 2, 5000);
+    }
+  }
+}
+
 class HashMismatchError extends Error {
   constructor(file, expected, actual) {
     super(`sha256 mismatch for ${path.basename(file)}: expected ${expected}, got ${actual}`);
@@ -128,10 +149,10 @@ async function downloadFile({ url, dest, sha256, onProgress = () => {}, signal, 
       throw new HashMismatchError(dest, sha256, actual);
     }
   }
-  await fsp.rename(part, dest);
+  await renameRetry(part, dest, { signal });
   const size = await sizeOrZero(dest);
   onProgress(size, size);
   return dest;
 }
 
-module.exports = { downloadFile, withRetries, sha256File, HashMismatchError };
+module.exports = { renameRetry, downloadFile, withRetries, sha256File, HashMismatchError };

@@ -1,0 +1,143 @@
+{
+ "format": "h3studio-graph-template",
+ "version": 1,
+ "order": 60,
+ "name": "Бит-клип",
+ "about": "Клип в ритм под дроп песни: пул шотов от сценариста, картинки и сцены по 3 с, бит-монтаж, копия для телефона и обложка.",
+ "nodes": [
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -420
+   },
+   "data": {
+    "text": "Бит-клип по частям.\n\n1. «Песня»: загрузите трек, дроп и сетку долей найдёт студия.\n2. «Идея» одной строкой; «Герой без лица» — выберите маску, визор, фарфор, капюшон или силуэт.\n3. «Сценарист пула» → «Написать»: 16 шотов с ролями (герой, атмосфера, удар, райзер, крупный план).\n4. «Развернуть»: цепочки «Картинка → Сцена» по 3 с, у каждой сцены роль и крупность. Роль меняется на карточке; шот убирается, если удалить его связь с «Бит-монтажом».\n5. «Снять всё»: картинки, сцены, затем «Бит-монтаж» (кик, снейр, дроп, подписи) и «Выход» с копией для телефона до 10 МБ и обложкой."
+   }
+  },
+  {
+   "id": "song",
+   "type": "song",
+   "position": {
+    "x": 0,
+    "y": 0
+   },
+   "data": {
+    "title": "Песня",
+    "length": "whole"
+   }
+  },
+  {
+   "id": "idea",
+   "type": "idea",
+   "position": {
+    "x": 0,
+    "y": 260
+   },
+   "data": {
+    "title": "Идея одной строкой",
+    "text": ""
+   }
+  },
+  {
+   "id": "hero",
+   "type": "hero",
+   "position": {
+    "x": 0,
+    "y": 520
+   },
+   "data": {
+    "kind": "faceless",
+    "preset": "chrome",
+    "gender": "other",
+    "age": 0,
+    "en": "a tall slim dancer wearing a seamless mirror-polished chrome full-face mask with no features at all, a smooth reflective chrome oval instead of a face, a black oversized hoodie with the hood up, black techwear cargo pants, black gloves",
+    "ru": "Хромовая маска",
+    "outfit_en": "",
+    "outfit_ru": "",
+    "title": "Герой без лица"
+   }
+  },
+  {
+   "id": "w",
+   "type": "pool_writer",
+   "position": {
+    "x": 380,
+    "y": 200
+   },
+   "data": {
+    "title": "Сценарист пула",
+    "n": 16
+   }
+  },
+  {
+   "id": "bm",
+   "type": "beat_montage",
+   "position": {
+    "x": 3040,
+    "y": 0
+   },
+   "data": {
+    "title": "Бит-монтаж",
+    "from": "w",
+    "preset": "techno"
+   }
+  },
+  {
+   "id": "out",
+   "type": "output",
+   "position": {
+    "x": 3460,
+    "y": 0
+   },
+   "data": {
+    "title": "Выход",
+    "output": {
+     "size": "off",
+     "hdr": false,
+     "fps48": false
+    },
+    "phone": true,
+    "cover": true
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "e1",
+   "source": "song",
+   "sourceHandle": "song",
+   "target": "w",
+   "targetHandle": "song"
+  },
+  {
+   "id": "e2",
+   "source": "idea",
+   "sourceHandle": "text",
+   "target": "w",
+   "targetHandle": "idea"
+  },
+  {
+   "id": "e3",
+   "source": "hero",
+   "sourceHandle": "look",
+   "target": "w",
+   "targetHandle": "cast"
+  },
+  {
+   "id": "e4",
+   "source": "song",
+   "sourceHandle": "song",
+   "target": "bm",
+   "targetHandle": "track"
+  },
+  {
+   "id": "e5",
+   "source": "bm",
+   "sourceHandle": "video",
+   "target": "out",
+   "targetHandle": "video"
+  }
+ ]
+}

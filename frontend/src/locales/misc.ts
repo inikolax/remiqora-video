@@ -4,7 +4,7 @@ export default {
     loadFailed: 'Не удалось загрузить: {msg}',
     // a failed job (lib/store.ts jobFailed) and the banners
     jobErrorIn: '«{name}»: {what} — ошибка: {err}', jobError: '{what} — ошибка: {err}', jobFailed: 'задача не удалась', bannerOpen: 'Открыть',
-    noLlamaServer: 'Нет llama-server.exe: сценарист не запустится. Положите сборку llama.cpp в tools\\llama, установите LM Studio (студия возьмёт её движок) или укажите путь в «Модели и настройки»',
+    noLlamaServer: 'Нет llama-server.exe: сценарист не запустится. Положите сборку llama.cpp в tools\\llama, установите LM Studio (студия возьмёт её движок) или укажите путь в «Настройки»',
     // FastAPI's validation errors, said in words (lib/api.ts)
     field: { prompt: 'Промт', seconds: 'Длина', count: 'Сколько', strength: 'Сила LoRA', seed: 'Сид', any: 'Поле' },
     tooLong: '{f}: слишком длинно, не больше {n} символов', tooShort: '{f}: не может быть пустым',
@@ -39,7 +39,7 @@ export default {
   en: {
     loadFailed: 'Could not load: {msg}',
     jobErrorIn: '«{name}»: {what} failed: {err}', jobError: '{what} failed: {err}', jobFailed: 'the job failed', bannerOpen: 'Open',
-    noLlamaServer: 'No llama-server.exe: the writer will not start. Put a llama.cpp build into tools\\llama, install LM Studio (the studio takes its engine) or set the path in «Models and settings»',
+    noLlamaServer: 'No llama-server.exe: the writer will not start. Put a llama.cpp build into tools\\llama, install LM Studio (the studio takes its engine) or set the path in «Settings»',
     field: { prompt: 'Prompt', seconds: 'Length', count: 'How many', strength: 'LoRA strength', seed: 'Seed', any: 'Field' },
     tooLong: '{f}: too long, at most {n} characters', tooShort: '{f}: cannot be empty',
     maxN: '{f}: at most {n}', minN: '{f}: at least {n}',

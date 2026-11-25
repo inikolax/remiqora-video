@@ -218,12 +218,14 @@ def ref_extra(ref: Optional[dict]) -> Optional[list]:
 def scene_key(prompt: str, seed: int, w: int, h: int, length: int, loras: list[dict], start: Optional[Path],
               refs: list[Path] = (), model: str = "h3", track: Optional[Path] = None, track_start: float = 0.0,
               ref: Optional[dict] = None, end: Optional[Path] = None, legacy: bool = False,
-              fit: Optional[tuple[int, int, int, int]] = None) -> str:
+              fit: Optional[tuple[int, int, int, int]] = None, audio: Optional[Path] = None, audio_from: float = 0.0) -> str:
     """The cache key of a shot. H3's keys are what they were before phase 10; another model hashes its own weights and
     recipe and the prompt it really gets (videomodels.adapt), LTX 2.3 to a track - the track's bytes and where its
     piece begins, with a reference LoRA (ID-LoRA) - ref_extra, with an end frame (flf2v) - its bytes; without them
     the key is what it was. `fit` (start_crop): the start photo cut to another rectangle than the centre one - the
-    shot is another, so its key is another (a photo the centre already frames keeps its key)."""
+    shot is another, so its key is another (a photo the centre already frames keeps its key). `audio` (H3 only): the
+    sound the scene is drawn under (graphs.scene) - its bytes and where its piece begins; without it the key is what it
+    was."""
     c = videomodels.card(model)
     fit = list(fit) if fit else None
     if c.id != "h3":   # its own LoRA only (loras.py); none - the key as it was before LTX had LoRA
@@ -248,6 +250,10 @@ def scene_key(prompt: str, seed: int, w: int, h: int, length: int, loras: list[d
         parts += ["turbo", turbo]
     if refs:   # Ref2VA: other weights, the turbo LoRA, its steps and the photos themselves (keys of other shots stay as they were)
         parts += ["ref2va", config.H3_REF_UNET, config.H3_REF_LORA, graphs.REF_STEPS, *(file_sha(r) for r in refs)]
+        if (big := graphs.ref_recipe(w, h))["shift"]:   # the 768p LoRA's final: not a final shot made before it was installed
+            parts += ["ref768", big["lora"], big["steps"]]
+    if audio:
+        parts += ["audio", file_sha(audio), round(float(audio_from), 3)]
     return hashlib.sha1(json.dumps(parts, ensure_ascii=False).encode()).hexdigest()[:16]
 
 
@@ -825,7 +831,8 @@ async def shoot_scene(job: jobs.Job, pid: str, shots_dir: Path, prompt: str, kin
                       length: int, loras: list[dict], start: Optional[Path], refs: list[Path], quality: str,
                       on_start: Optional[Callable[[str], None]] = None, label: str = "", model: str = "h3",
                       track: Optional[Path] = None, track_start: float = 0.0, old_prompt: Optional[str] = None,
-                      ref: Optional[dict] = None, end: Optional[Path] = None) -> dict:
+                      ref: Optional[dict] = None, end: Optional[Path] = None, ahead: bool = False,
+                      audio: Optional[Path] = None, audio_from: float = 0.0) -> Optional[dict]:
     """One shot with the cache: from shots_dir if its key is there, else through the engine (jobs.shoot) into
     shots_dir/<key>.mp4 + .png. `kind` "continue" takes `start` as it is (a last frame); a new scene's start photo is
     cropped to the frame - on its face when it has one (start_crop: ID-LoRA takes the face from that frame).
@@ -838,22 +845,28 @@ async def shoot_scene(job: jobs.Job, pid: str, shots_dir: Path, prompt: str, kin
     was shot with before its model got its own (model_prompts) - a shot made with it is kept. `ref` (LTX 2.3: the graph's
     voice scene, a storyboard hero's voice - voice_ref): ID-LoRA {lora: {id, strength}, voice: a file, from, secs,
     identity} - the face from `start`, that voice. `end` (LTX, flf2v): the picture the scene ends on (cropped to the
-    frame, as a start photo); a model that can't (H3, WAN) shoots without it, and its key doesn't have it."""
+    frame, as a start photo); a model that can't (H3, WAN) shoots without it, and its key doesn't have it. `audio`
+    (+ `audio_from`, seconds): H3 only - the scene is drawn under that sound (a spoken line, graphs.scene); another model
+    shoots without it and its key doesn't have it.
+    `ahead` (encode_ahead): nothing is shot - an H3 shot still to make gets its inputs ready in COMFY_INPUT as for its
+    shot and -> {"graph", "files"} (its graph, the files put there), else None."""
     label = label or i18n.L("Сцена", "Scene")
     card = videomodels.card(model)
     refs = refs if card.refs else []
     end = end if card.ends else None
     loras = lora_lib.for_model(loras, videomodels.shooter(card).id)   # each model its own LoRA (loras.py)
+    audio = audio if card.id == "h3" else None
     crop = start_crop(start, w, h, kind, tight=bool(ref))   # the photo's face, when it has one: ID-LoRA's frame
-    key = scene_key(prompt, seed, w, h, length, loras, start, refs, card.id, track, track_start, ref, end, fit=crop)
+    ak = {"audio": audio, "audio_from": audio_from} if audio else {}
+    key = scene_key(prompt, seed, w, h, length, loras, start, refs, card.id, track, track_start, ref, end, fit=crop, **ak)
     if end:
         old_prompt = None   # a shot made without the end frame isn't this one
     if old_prompt and old_prompt != prompt and not is_cached(shots_dir, key):
-        k0 = scene_key(old_prompt, seed, w, h, length, loras, start, refs, card.id, track, track_start)
+        k0 = scene_key(old_prompt, seed, w, h, length, loras, start, refs, card.id, track, track_start, **ak)
         if is_cached(shots_dir, k0):
             prompt, key = old_prompt, k0
         elif card.id != "h3":   # shot the night of 2026-10-23 before H3's tail left LTX's prompt (363212f)
-            k0 = scene_key(old_prompt, seed, w, h, length, loras, start, refs, card.id, track, track_start, legacy=True)
+            k0 = scene_key(old_prompt, seed, w, h, length, loras, start, refs, card.id, track, track_start, legacy=True, **ak)
             if is_cached(shots_dir, k0):
                 key = k0
     mp4, png = shot_paths(shots_dir, key)
@@ -862,8 +875,10 @@ async def shoot_scene(job: jobs.Job, pid: str, shots_dir: Path, prompt: str, kin
         key = scene_key(prompt, seed, w, h, length, loras, start, refs, card.id, track, track_start, ref, end, fit=crop)
         mp4, png = shot_paths(shots_dir, key)
     if is_cached(shots_dir, key):
-        return {"key": key, "mp4": mp4, "png": png, "cached": True, "seconds": 0, "model": card.id}
-    if on_start:
+        return None if ahead else {"key": key, "mp4": mp4, "png": png, "cached": True, "seconds": 0, "model": card.id}
+    if ahead and card.id != "h3":
+        return None
+    if on_start and not ahead:
         on_start(key)
     ts = time.time()
     shots_dir.mkdir(exist_ok=True)
@@ -878,6 +893,13 @@ async def shoot_scene(job: jobs.Job, pid: str, shots_dir: Path, prompt: str, kin
     for k, r in enumerate(refs, 1):
         ref_names.append(f"h3s_{pid}_ref{k}{r.suffix}")
         shutil.copyfile(r, config.COMFY_INPUT / ref_names[-1])
+    aname = None
+    if audio and not ahead:
+        aname = f"h3s_{key}_audio{audio.suffix}"
+        shutil.copyfile(audio, config.COMFY_INPUT / aname)
+    if ahead:   # H3 takes no track, end frame or voice: the graph its shot will send, but for the LoRA (no part of the TE's)
+        return {"graph": graphs.scene(videomodels.adapt(card, prompt), w, h, length, seed, f"h3studio/{pid}/{key}", [], first, ref_names),
+                "files": [config.COMFY_INPUT / first] if first else []}
     tname = None
     if track:
         tname = f"h3s_{pid}_track{track.suffix}"
@@ -893,7 +915,7 @@ async def shoot_scene(job: jobs.Job, pid: str, shots_dir: Path, prompt: str, kin
         shutil.copyfile(ref["voice"], config.COMFY_INPUT / vname)
         voice = {**ref, "voice": vname}
     out_mp4, out_png = await jobs.shoot(job, videomodels.adapt(card, prompt), w, h, length, seed, loras, first, f"h3studio/{pid}/{key}",
-                                        quality, ref_names, card.id, tname, track_start, voice, last)
+                                        quality, ref_names, card.id, tname, track_start, voice, last, aname, audio_from)
     if not out_png:
         raise EngineError(i18n.L(f"{label}: нет последнего кадра — цепочку не продолжить",
                                  f"{label}: no last frame, the chain cannot go on"))
@@ -901,10 +923,30 @@ async def shoot_scene(job: jobs.Job, pid: str, shots_dir: Path, prompt: str, kin
     shutil.move(out_png, png)
     if not card.sound:
         await asyncio.to_thread(add_silence, mp4)
-    for f in (first, last):
+    for f in (first, last, aname):
         if f:
             (config.COMFY_INPUT / f).unlink(missing_ok=True)
     return {"key": key, "mp4": mp4, "png": png, "cached": False, "seconds": round(time.time() - ts, 1), "model": card.id}
+
+
+async def encode_ahead(job: jobs.Job, pid: str, shots_dir: Path, calls: list[dict]) -> list[Path]:
+    """The H3 scenes a run will shoot next (`calls`: shoot_scene's keyword arguments) - their prompts in one pass of the
+    text encoder (jobs.encode_ahead), so it loads once for them all. The shots are made later as before and find their
+    conditioning in the worker's cache. -> the files put into COMFY_INPUT for it (a shot removes its own; the caller
+    removes those left when the run ends)."""
+    if not config.H3_TE_AHEAD or len(calls) < 2:
+        return []
+    parts, files = [], []
+    for kw in calls:
+        try:
+            r = await shoot_scene(job, pid, shots_dir, ahead=True, **kw)
+        except Exception:  # noqa: BLE001 - the scene's own shot reports what is wrong with it
+            continue
+        if r:
+            parts.append(r["graph"])
+            files += r["files"]
+    await jobs.encode_ahead(job, parts)
+    return files
 
 
 async def finish(job: jobs.Job, folder: Path, ed: dict, stem: str, w: int, h: int,
@@ -1001,138 +1043,166 @@ async def run(job: jobs.Job, pid: str) -> dict:
     pngs: dict[str, Path] = {}   # a scene id -> its shot's last frame (the start of a continuation from it)
     retakes: dict = {}           # a scene shot again for its lips -> the seed that goes into the video
     cams: dict = {}              # a singing scene shot again handheld for its stillness, the handheld take chosen
-    for i in order:
-        s = plan["scenes"][i]
-        c, sw, sh, length = specs[i]
-        row = prog["scenes"][i]
-        if job.stop_after:
-            row["status"] = "skipped"
-            continue
-        src = prompts.from_of(plan, s)
-        start, seed, ref = scene_inputs(proj, plan, s, pngs.get(sid(src)) if src else None)
-        if s["kind"] == "continue" and not start:
-            raise EngineError(i18n.L(f"Сцене {i + 1} нужен последний кадр сцены {(src or {}).get('index', i - 1) + 1}, а его нет",
-                                         f"Scene {i + 1} needs the last frame of scene {(src or {}).get('index', i - 1) + 1}, "
-                                         "and there is none"))
-        loras = loras_of(st, s)
-        tpath = scene_track(proj, c) if pre["tracks"][i] == "full" else scene_track(proj, c, plan, s)
+    ahead: set[int] = set()      # the scenes whose prompts went into a text-encoder pass ahead (encode_ahead)
+    ahead_files: list[Path] = []
 
-        def started(key: str, row=row, i=i) -> None:
-            row.update(status="running", key=key)
-            prog["current"] = i
+    def shot_args(j: int) -> Optional[dict]:
+        """Scene j's shoot_scene arguments as the loop below makes them, now; None - a continuation not startable yet."""
+        sj, (cj, swj, shj, lj) = plan["scenes"][j], specs[j]
+        srcj = prompts.from_of(plan, sj)
+        startj, seedj, refj = scene_inputs(proj, plan, sj, pngs.get(sid(srcj)) if srcj else None)
+        if sj["kind"] == "continue" and not startj:
+            return None
+        tpj = scene_track(proj, cj) if pre["tracks"][j] == "full" else scene_track(proj, cj, plan, sj)
+        vrj = voice_ref(proj, plan, sj, cj, tpj)
+        return dict(prompt=model_prompts.for_id(plan, sj) if vrj else model_prompts.for_model(cj.id, plan, sj), kind=sj["kind"],
+                    seed=seedj, w=swj, h=shj, length=lj, loras=loras_of(st, sj), start=startj, refs=refj, quality=quality,
+                    model=cj.id, track=tpj, track_start=tstarts[j] if tpj else 0.0, old_prompt=None if vrj else sj["prompt"],
+                    ref=vrj, end=end_frame(proj, sj))
 
-        vref = voice_ref(proj, plan, s, c, tpath)   # a hero's voice by sample (ID-LoRA): its own prompt and key
-        end = end_frame(proj, s)                    # the picture it comes to (LTX)
-        text = model_prompts.for_id(plan, s) if vref else model_prompts.for_model(c.id, plan, s)
-        shot = await shoot_scene(job, pid, shots_dir, text, s["kind"], seed, sw, sh, length, loras, start, ref,
-                                 quality, started, i18n.L(f"Сцена {i + 1}", f"Scene {i + 1}"), c.id, tpath, tstarts[i] if tpath else 0.0,
-                                 old_prompt=None if vref else s["prompt"], ref=vref, end=end)
-        async def retake(seed2: int, text=text, s=s, i=i, c=c, sw=sw, sh=sh, length=length, loras=loras, start=start,
-                         ref=ref, tpath=tpath, vref=vref, started=started, end=end, old: Optional[str] = "") -> dict:
-            # `old`: the prompt a shot made before may have been shot with ("" - the scene's; None - none: a take with
-            # another prompt must not find the first take under the scene's own)
-            return await shoot_scene(job, pid, shots_dir, text, s["kind"], seed2, sw, sh, length, loras, start, ref,
+    try:
+        for i in order:
+            s = plan["scenes"][i]
+            c, sw, sh, length = specs[i]
+            row = prog["scenes"][i]
+            if job.stop_after:
+                row["status"] = "skipped"
+                continue
+            if i not in ahead and videomodels.shooter(c).id == "h3":
+                # the first H3 scene to shoot (another model's scenes before it would have freed the cache): the prompts of
+                # it and of the H3 scenes after it that can start now, in one pass of the text encoder
+                rest = [j for j in order[order.index(i):] if j not in ahead and videomodels.shooter(specs[j][0]).id == "h3"]
+                calls = [a for a in map(shot_args, rest) if a]
+                ahead.update(rest)
+                ahead_files += await encode_ahead(job, pid, shots_dir, calls)
+            src = prompts.from_of(plan, s)
+            start, seed, ref = scene_inputs(proj, plan, s, pngs.get(sid(src)) if src else None)
+            if s["kind"] == "continue" and not start:
+                raise EngineError(i18n.L(f"Сцене {i + 1} нужен последний кадр сцены {(src or {}).get('index', i - 1) + 1}, а его нет",
+                                             f"Scene {i + 1} needs the last frame of scene {(src or {}).get('index', i - 1) + 1}, "
+                                             "and there is none"))
+            loras = loras_of(st, s)
+            tpath = scene_track(proj, c) if pre["tracks"][i] == "full" else scene_track(proj, c, plan, s)
+
+            def started(key: str, row=row, i=i) -> None:
+                row.update(status="running", key=key)
+                prog["current"] = i
+
+            vref = voice_ref(proj, plan, s, c, tpath)   # a hero's voice by sample (ID-LoRA): its own prompt and key
+            end = end_frame(proj, s)                    # the picture it comes to (LTX)
+            text = model_prompts.for_id(plan, s) if vref else model_prompts.for_model(c.id, plan, s)
+            shot = await shoot_scene(job, pid, shots_dir, text, s["kind"], seed, sw, sh, length, loras, start, ref,
                                      quality, started, i18n.L(f"Сцена {i + 1}", f"Scene {i + 1}"), c.id, tpath, tstarts[i] if tpath else 0.0,
-                                     old_prompt=None if vref or old is None else s["prompt"], ref=vref, end=end)
+                                     old_prompt=None if vref else s["prompt"], ref=vref, end=end)
+            async def retake(seed2: int, text=text, s=s, i=i, c=c, sw=sw, sh=sh, length=length, loras=loras, start=start,
+                             ref=ref, tpath=tpath, vref=vref, started=started, end=end, old: Optional[str] = "") -> dict:
+                # `old`: the prompt a shot made before may have been shot with ("" - the scene's; None - none: a take with
+                # another prompt must not find the first take under the scene's own)
+                return await shoot_scene(job, pid, shots_dir, text, s["kind"], seed2, sw, sh, length, loras, start, ref,
+                                         quality, started, i18n.L(f"Сцена {i + 1}", f"Scene {i + 1}"), c.id, tpath, tstarts[i] if tpath else 0.0,
+                                         old_prompt=None if vref or old is None else s["prompt"], ref=vref, end=end)
 
-        # a new singing shot of a clip: do the lips move where the song's voice is (a cached one was measured when shot)
-        lips = await asyncio.to_thread(lips_of, plan, s, shot["mp4"], length) if s.get("shot") == "sing" and plan.get("clip") and not shot["cached"] else None
-        retaken = False
-        if lips is not None and not shot["cached"] and checks.mute(lips):
-            # «не поёт»: one more take with another seed (remiqora-video's rule), the livelier lips go into the video
-            row.update(status="running", note=i18n.L("губы не двигаются — переснимаю", "the lips don't move, shooting again"))
-            seed2, retaken = seed + 7919, True
-            again = await retake(seed2)
-            lips2 = await asyncio.to_thread(lips_of, plan, s, again["mp4"], length)
-            retakes[s["id"] if s.get("id") else i] = seed2 if (lips2 or 0) > lips else seed
-            if (lips2 or 0) > lips:
-                shot, seed, lips = {**again, "seconds": shot["seconds"] + again["seconds"]}, seed2, lips2
-            row.update(key=shot["key"], note=None)
-        # phase 10, stage A: the clip's checks (black, frozen, a cut inside, smeared, the face) on a new shot; a severe
-        # problem - one more take with another seed, the one with fewer problems goes into the video (a cached shot:
-        # what was found when it was shot)
-        # the face against the hero's own portrait when one hero with a photo is in it (`hero`, severe), else against
-        # the start frame as before; `still` - an almost still shot with people
-        face = face_ref(plan, s, start, ref)
-        hero = hero_photo(proj, plan, s)
-        people = plan["mode"] != "none" and not prompts.nobody(plan, s)
-        singing = lips is not None and not checks.mute(lips)   # a singer standing still isn't a stall
+            # a new singing shot of a clip: do the lips move where the song's voice is (a cached one was measured when shot)
+            lips = await asyncio.to_thread(lips_of, plan, s, shot["mp4"], length) if s.get("shot") == "sing" and plan.get("clip") and not shot["cached"] else None
+            retaken = False
+            if lips is not None and not shot["cached"] and checks.mute(lips):
+                # «не поёт»: one more take with another seed (remiqora-video's rule), the livelier lips go into the video
+                row.update(status="running", note=i18n.L("губы не двигаются — переснимаю", "the lips don't move, shooting again"))
+                seed2, retaken = seed + 7919, True
+                again = await retake(seed2)
+                lips2 = await asyncio.to_thread(lips_of, plan, s, again["mp4"], length)
+                retakes[s["id"] if s.get("id") else i] = seed2 if (lips2 or 0) > lips else seed
+                if (lips2 or 0) > lips:
+                    shot, seed, lips = {**again, "seconds": shot["seconds"] + again["seconds"]}, seed2, lips2
+                row.update(key=shot["key"], note=None)
+            # phase 10, stage A: the clip's checks (black, frozen, a cut inside, smeared, the face) on a new shot; a severe
+            # problem - one more take with another seed, the one with fewer problems goes into the video (a cached shot:
+            # what was found when it was shot)
+            # the face against the hero's own portrait when one hero with a photo is in it (`hero`, severe), else against
+            # the start frame as before; `still` - an almost still shot with people
+            face = face_ref(plan, s, start, ref)
+            hero = hero_photo(proj, plan, s)
+            people = plan["mode"] != "none" and not prompts.nobody(plan, s)
+            singing = lips is not None and not checks.mute(lips)   # a singer standing still isn't a stall
 
-        cut_ok = bool(prompts.shots_timeline(plan, s))   # «Склейки внутри сцены»: a cut inside is asked for, not a fault
+            cut_ok = bool(prompts.shots_timeline(plan, s))   # «Склейки внутри сцены»: a cut inside is asked for, not a fault
 
-        async def problems(mp4: Path, s=s, face=face, hero=hero, people=people, singing=singing, cut_ok=cut_ok) -> list:
-            found = await asyncio.to_thread(checks.check_clip, mp4, face, hero, s.get("framing"), people)
-            found = checks.calm(found, s.get("framing"), stylized)   # `still` by the scene's framing and the style
-            return [p for p in found if not (singing and p.code == "frozen") and not (cut_ok and p.code == "cut")]
-        found = await problems(shot["mp4"]) if not shot["cached"] else None
-        # a face unlike the hero's in a shot that starts from a drawn frame unlike her (frame.ok false; the frame is
-        # FACE_AT's first frame too): another seed starts from the same face - no retake for that alone, the board says
-        # «кадр не похож на героя», and «Перерисовать кадр» is the way
-        hopeless = bool(found) and unlike_frame(s) is not None and all(p.code == "hero" for p in found if p.severe)
-        if found and checks.severe(found) and not retaken and not hopeless:
-            row.update(status="running", note=", ".join(dict.fromkeys(checks.name(p.code) for p in found if p.severe))
-                       + i18n.L(" — переснимаю", ", shooting again"))
-            seed2, retaken = seed + 7919, True
-            again = await retake(seed2)
-            found2 = await problems(again["mp4"])
-            better = checks.better(found2, found)   # the face closer to the hero's when both miss it
-            retakes[s["id"] if s.get("id") else i] = seed2 if better else seed
-            if better:
-                shot, seed, found = {**again, "seconds": shot["seconds"] + again["seconds"]}, seed2, found2
-            row.update(key=shot["key"], note=None)
-        if found and not retaken and any(p.code == "still" for p in found) and still_retake(plan, s):
-            # formula 3, a clip's singer almost still: one more take with another seed, the livelier one goes into the
-            # video. Handheld (the same seed) only for a scene with no camera of its own - a camera the writer or the
-            # user picked (static, a push-in) stays, and a drawn or animated picture never goes handheld: it jumped
-            # and pulled away from the drawing there (anime, 3D)
-            hand = not s.get("camera") and s.get("framing") in ("close", "medium") and not stylized
-            row.update(status="running", note=i18n.L("почти не движется — переснимаю", "almost still, shooting again")
-                       + (i18n.L(" с камерой с рук", " handheld") if hand else ""))
-            if hand:
-                s2 = {**s, "camera": "handheld"}
-                plan2 = {**plan, "scenes": [s2 if x is s else x for x in plan["scenes"]]}
-                s2["prompt"] = prompts.compose(plan2, s2)
-                again = await retake(seed, text=model_prompts.for_id(plan2, s2) if vref else model_prompts.for_model(c.id, plan2, s2),
-                                     old=None)
-            else:
-                again = await retake(seed + 7919)
-            found2 = await problems(again["mp4"])
-            if checks.better(found2, found):
+            async def problems(mp4: Path, s=s, face=face, hero=hero, people=people, singing=singing, cut_ok=cut_ok) -> list:
+                found = await asyncio.to_thread(checks.check_clip, mp4, face, hero, s.get("framing"), people)
+                found = checks.calm(found, s.get("framing"), stylized)   # `still` by the scene's framing and the style
+                return [p for p in found if not (singing and p.code == "frozen") and not (cut_ok and p.code == "cut")]
+            found = await problems(shot["mp4"]) if not shot["cached"] else None
+            # a face unlike the hero's in a shot that starts from a drawn frame unlike her (frame.ok false; the frame is
+            # FACE_AT's first frame too): another seed starts from the same face - no retake for that alone, the board says
+            # «кадр не похож на героя», and «Перерисовать кадр» is the way
+            hopeless = bool(found) and unlike_frame(s) is not None and all(p.code == "hero" for p in found if p.severe)
+            if found and checks.severe(found) and not retaken and not hopeless:
+                row.update(status="running", note=", ".join(dict.fromkeys(checks.name(p.code) for p in found if p.severe))
+                           + i18n.L(" — переснимаю", ", shooting again"))
+                seed2, retaken = seed + 7919, True
+                again = await retake(seed2)
+                found2 = await problems(again["mp4"])
+                better = checks.better(found2, found)   # the face closer to the hero's when both miss it
+                retakes[s["id"] if s.get("id") else i] = seed2 if better else seed
+                if better:
+                    shot, seed, found = {**again, "seconds": shot["seconds"] + again["seconds"]}, seed2, found2
+                row.update(key=shot["key"], note=None)
+            if found and not retaken and any(p.code == "still" for p in found) and still_retake(plan, s):
+                # formula 3, a clip's singer almost still: one more take with another seed, the livelier one goes into the
+                # video. Handheld (the same seed) only for a scene with no camera of its own - a camera the writer or the
+                # user picked (static, a push-in) stays, and a drawn or animated picture never goes handheld: it jumped
+                # and pulled away from the drawing there (anime, 3D)
+                hand = not s.get("camera") and s.get("framing") in ("close", "medium") and not stylized
+                row.update(status="running", note=i18n.L("почти не движется — переснимаю", "almost still, shooting again")
+                           + (i18n.L(" с камерой с рук", " handheld") if hand else ""))
                 if hand:
-                    cams[s["id"] if s.get("id") else i] = "handheld"
+                    s2 = {**s, "camera": "handheld"}
+                    plan2 = {**plan, "scenes": [s2 if x is s else x for x in plan["scenes"]]}
+                    s2["prompt"] = prompts.compose(plan2, s2)
+                    again = await retake(seed, text=model_prompts.for_id(plan2, s2) if vref else model_prompts.for_model(c.id, plan2, s2),
+                                         old=None)
                 else:
-                    retakes[s["id"] if s.get("id") else i] = seed + 7919
-                    seed += 7919
-                shot, found = {**again, "seconds": shot["seconds"] + again["seconds"]}, found2
-                if s.get("shot") == "sing" and plan.get("clip"):
-                    lips = await asyncio.to_thread(lips_of, plan, s, shot["mp4"], length)
-            elif not hand:
-                retakes[s["id"] if s.get("id") else i] = seed
-            row.update(key=shot["key"], note=None)
-        seen = checks.calm(checks.public(found) if found is not None else checks.saved(shot["mp4"]), s.get("framing"), stylized)
-        if seen and cut_ok:
-            seen = [p for p in seen if p.get("code") != "cut"]
-        if seen:
-            row["checks"] = seen
-        if lips is not None:
-            row.update(lips=round(lips, 4), mute=checks.mute(lips))
-        if shot["cached"]:
-            row.update(status="cached", key=shot["key"], seconds=0)
-        else:
-            row.update(status="done", seconds=shot["seconds"])
-            for j in order:   # now with this shot in it (a cold one doesn't count)
-                if prog["scenes"][j]["status"] == "queued" and specs[j][0].id == c.id:
-                    prog["scenes"][j]["estimate"] = round(est(j))
-        key = shot["key"]
-        heard = None
-        if vref:   # how alike the scene's voice is to the sample (voice.py; measured once, kept next to the shot)
-            from . import voice
-            heard = await asyncio.to_thread(voice.measured, shot["mp4"], vref["voice"], vref["from"], vref["secs"])
-        shots[i] = {"index": i, "id": sid(s), "kind": s["kind"], "key": key, "seed": seed, "file": f"scenes/{key}.mp4",
-                    "png": f"scenes/{key}.png", "cached": shot["cached"], "seconds": shot["seconds"], "model": shot["model"],
-                    **({"lips": round(lips, 4), "mute": checks.mute(lips)} if lips is not None else {}),
-                    **({"voice": heard} if heard else {}), **({"checks": seen} if seen else {})}
-        pngs[sid(s)] = shot["png"]
+                    again = await retake(seed + 7919)
+                found2 = await problems(again["mp4"])
+                if checks.better(found2, found):
+                    if hand:
+                        cams[s["id"] if s.get("id") else i] = "handheld"
+                    else:
+                        retakes[s["id"] if s.get("id") else i] = seed + 7919
+                        seed += 7919
+                    shot, found = {**again, "seconds": shot["seconds"] + again["seconds"]}, found2
+                    if s.get("shot") == "sing" and plan.get("clip"):
+                        lips = await asyncio.to_thread(lips_of, plan, s, shot["mp4"], length)
+                elif not hand:
+                    retakes[s["id"] if s.get("id") else i] = seed
+                row.update(key=shot["key"], note=None)
+            seen = checks.calm(checks.public(found) if found is not None else checks.saved(shot["mp4"]), s.get("framing"), stylized)
+            if seen and cut_ok:
+                seen = [p for p in seen if p.get("code") != "cut"]
+            if seen:
+                row["checks"] = seen
+            if lips is not None:
+                row.update(lips=round(lips, 4), mute=checks.mute(lips))
+            if shot["cached"]:
+                row.update(status="cached", key=shot["key"], seconds=0)
+            else:
+                row.update(status="done", seconds=shot["seconds"])
+                for j in order:   # now with this shot in it (a cold one doesn't count)
+                    if prog["scenes"][j]["status"] == "queued" and specs[j][0].id == c.id:
+                        prog["scenes"][j]["estimate"] = round(est(j))
+            key = shot["key"]
+            heard = None
+            if vref:   # how alike the scene's voice is to the sample (voice.py; measured once, kept next to the shot)
+                from . import voice
+                heard = await asyncio.to_thread(voice.measured, shot["mp4"], vref["voice"], vref["from"], vref["secs"])
+            shots[i] = {"index": i, "id": sid(s), "kind": s["kind"], "key": key, "seed": seed, "file": f"scenes/{key}.mp4",
+                        "png": f"scenes/{key}.png", "cached": shot["cached"], "seconds": shot["seconds"], "model": shot["model"],
+                        **({"lips": round(lips, 4), "mute": checks.mute(lips)} if lips is not None else {}),
+                        **({"voice": heard} if heard else {}), **({"checks": seen} if seen else {})}
+            pngs[sid(s)] = shot["png"]
+    finally:   # a stop, an error or a cancel: the start frames of scenes encoded ahead and not shot after all go
+        for f in ahead_files:
+            f.unlink(missing_ok=True)
     # «Починить лица» (facefix.py) on the shot scenes that ask for it, every model loaded once for all of them; a
     # fixed shot lives next to the shot as scenes/<key>.ff<sig>.mp4 and goes into the video in the shot's place
     todo: list[tuple[int, dict]] = []

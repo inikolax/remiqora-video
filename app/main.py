@@ -22,11 +22,11 @@ from starlette.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
 
 from . import config, settings  # settings first: data/settings.json goes on top of .env before anything reads config
-from . import autopilot, clip_api, story, console, looks, downloads, edit, graph, graph_api, h3_licence, i18n, jobs, lora_prefs, models_page, music, picture, post, projects, render, sysinfo, timings, v2v, videomodels
+from . import actors_api, autopilot, beat_clip, clip_api, story, console, looks, downloads, edit, graph, graph_api, h3_licence, i18n, jobs, lora_prefs, models_page, music, picture, post, projects, render, sysinfo, timings, v2v, videomodels
 from .engine import graphs
 from .engine.comfy import COMFY, EngineError
 from .cloud import api as cloud_api, manager as cloud_manager
-from .llm import client as llm, describe, translate, writer
+from .llm import client as llm, describe, idea as idea_llm, translate, writer
 from .planner import check, grid, model_prompts, prompts
 from . import loras as lora_lib
 from .loras import LoraInfo
@@ -63,7 +63,9 @@ app = FastAPI(title="Remiqora Video", lifespan=lifespan)
 # pictures and videos are compressed already
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.include_router(graph_api.router)   # phase 9: graph projects
+app.include_router(actors_api.router)   # the actor library (data/actors/)
 app.include_router(clip_api.router)    # phase 11: a clip from a song
+app.include_router(beat_clip.router)   # «Бит-клип»: the one button, the montage panel, the publication panel
 app.include_router(autopilot.router)   # «Песня → клип»: the clip's stages in one job
 app.include_router(cloud_api.router)   # where the models run: here, a rented server, the user's own
 
@@ -386,6 +388,35 @@ def llm_translate(req: TranslateRequest):
         raise HTTPException(400, str(e)) from e
     return jobs.submit_task("translate", {"model": m.id, "model_name": m.name, "seconds": req.seconds},
                             lambda job: translate.translate(req.text, req.seconds, m.id, video=videomodels.pick(req.video_model), frame=req.frame, target=req.target), estimate=30).public()
+
+
+class IdeaTarget(BaseModel):
+    id: str
+    kind: str = Field(pattern="^(scene|picture)$")
+    seconds: float = Field(5, ge=1, le=15)
+    frame: bool = False          # a scene that starts from a picture
+    flux: bool = False           # a picture drawn by reference (FLUX.2 Klein)
+
+
+class IdeaRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_PROMPT)
+    mode: str = Field("auto", pattern="^(auto|video|picture|script|think)$")   # auto: by the idea's wires
+    targets: list[IdeaTarget] = []                          # what the idea feeds now (scenes, pictures)
+    model: Optional[str] = None
+    video_model: str = ""
+
+
+@app.post("/api/llm/idea")
+def llm_idea(req: IdeaRequest):
+    """A graph «Идея» -> a video prompt, a picture prompt, a draft script or the writer's free talk (app/llm/idea.py).
+    Prompts come with the wires each takes; a script and a talk come as a note. A job in the GPU queue."""
+    try:
+        m = llm.find(req.model)
+    except llm.LLMError as e:
+        raise HTTPException(400, str(e)) from e
+    targets = [t.model_dump() for t in req.targets]
+    return jobs.submit_task("translate", {"model": m.id, "model_name": m.name, "what": "idea", "mode": req.mode},
+                            lambda job: idea_llm.make(req.mode, req.text, targets, m.id, video=videomodels.pick(req.video_model)), estimate=40).public()
 
 
 class TranslateLookRequest(BaseModel):
@@ -1923,17 +1954,34 @@ class SettingsPatch(BaseModel):
     values: dict
 
 
-@app.post("/api/models/settings")
-async def models_settings(body: SettingsPatch):
-    """A select or a folder list changed: saved at once into data/settings.json. A new folder reaches the H3 worker at its
-    next start, so an idle one is stopped (the next shot starts it again, ~10 s)."""
+async def _save_settings(values: dict) -> None:
     try:
-        changed = settings.update(body.values)
+        changed = settings.update(values)
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
     if settings.ENGINE_KEYS & set(changed) and not jobs.busy():
         await COMFY.stop()
+
+
+@app.post("/api/models/settings")
+async def models_settings(body: SettingsPatch):
+    """A select or a folder list changed: saved at once into data/settings.json. A new folder reaches the H3 worker at its
+    next start, so an idle one is stopped (the next shot starts it again, ~10 s)."""
+    await _save_settings(body.values)
     return models_page.snapshot()
+
+
+@app.get("/api/app-settings")
+def app_settings_get():
+    """The «Настройки» page: the engine switch, folders, tools, the writer's defaults (the keys of settings.py)."""
+    return models_page.app_settings()
+
+
+@app.post("/api/app-settings")
+async def app_settings_post(body: SettingsPatch):
+    """The same keys and the same saving as /api/models/settings; the answer is this page's view."""
+    await _save_settings(body.values)
+    return models_page.app_settings()
 
 
 class PickRequest(BaseModel):
@@ -1956,6 +2004,7 @@ class DownloadRequest(BaseModel):
     slot: Optional[str] = None       # a weight role (models_page.SLOTS) - its folder; or
     accept_h3: bool = False          # the MiniMax H3 licence statement, ticked on the Models page
     to: Optional[str] = None         # "llm": the writer's last GGUF folder
+    rev: Optional[str] = None        # the revision of a pasted link (a branch or a commit); main when none
 
 
 def _download_folder(req: DownloadRequest) -> Path:
@@ -1977,7 +2026,7 @@ def models_download(req: DownloadRequest):
     if h3_licence.is_h3_repo(req.repo) and not req.accept_h3:
         raise HTTPException(400, h3_licence.refusal())
     try:
-        downloads.start(req.repo, req.path, _download_folder(req))
+        downloads.start(req.repo, req.path, _download_folder(req), req.rev or "main")
     except downloads.DownloadError as e:
         raise HTTPException(409, str(e)) from e
     return models_page.snapshot()
@@ -1991,10 +2040,10 @@ class UrlRequest(BaseModel):
 def models_download_url(req: UrlRequest):
     """A GGUF for the writer by its Hugging Face link."""
     try:
-        repo, path = downloads.parse_url(req.url)
+        repo, path, rev = downloads.parse_link(req.url)
     except downloads.DownloadError as e:
         raise HTTPException(400, str(e)) from e
-    return models_download(DownloadRequest(repo=repo, path=path, to="llm", accept_h3=False))
+    return models_download(DownloadRequest(repo=repo, path=path, to="llm", accept_h3=False, rev=rev))
 
 
 @app.post("/api/models/download/cancel")

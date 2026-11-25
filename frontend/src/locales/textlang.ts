@@ -1,4 +1,4 @@
-// The texts' language (app/i18n.py): the setting on «Модели и настройки» → «Сценарист», and the storyboard's
+// The texts' language (app/i18n.py): the setting on «Настройки» → «Сценарист», and the storyboard's
 // «Перевести на …» button.
 export default {
   ru: {

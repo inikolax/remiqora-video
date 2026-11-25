@@ -1,4 +1,4 @@
-// «Модели и настройки» (ModelsView.vue).
+// The models part of «Настройки» (SettingsView.vue).
 export default {
   ru: {
     sec: { h3: 'MiniMax H3', krea: 'Krea 2', flux2: 'FLUX.2 Klein', llm: 'Сценарист', tools: 'Инструменты' },
@@ -12,8 +12,8 @@ export default {
     kind: { weights: 'не LoRA', unreadable: 'битый' },
     can: { sound: 'свой звук', noSound: 'без звука', voice: 'реплики на языке ролика', refs: 'лица по фото', track: 'снимает под трек', upTo: 'сцена до {n} с' },
     checking: 'Проверяю, что установлено…', readFailed: 'Не удалось прочитать модели',
-    title: 'Модели и настройки',
-    intro: 'Видео, фото и сценарист: у каждой модели — что умеет, веса, параметры и её LoRA. Скачивание идёт в фоне, по одному файлу; положенный в папку файл появится здесь сам.',
+    title: 'Настройки',
+    intro: 'Общие настройки, где работают модели, затем видео, фото и сценарист: у каждой модели — что умеет, веса, параметры и её LoRA. Скачивание идёт в фоне, по одному файлу; положенный в папку файл появится здесь сам.',
     h3Licence: 'Лицензия MiniMax H3 не действует в США, ЕС, Великобритании и Южной Корее. Устанавливая H3, вы сами отвечаете за соблюдение её условий; автор Remiqora Video ответственности не несёт.', h3Accept: 'Я прочитал(а) и принимаю', h3Link: 'Текст лицензии',
     addSets: 'Добавить наборы моделей', addSetsTitle: 'Установщик докачает официальные наборы, которых не хватает; приложение продолжит работать',
     onDisk: 'Модели на диске', sections: 'Разделы', allThere: 'всё на месте', missing: 'чего-то не хватает',
@@ -57,7 +57,7 @@ export default {
     loraFor: 'LoRA для {name}', loraHint: '{n}; кладите .safetensors в папку — появятся сами', loraHintBoard: ', выбираются в раскадровке, как у H3',
     rank: 'ранг {v}', trigger: 'триггер: {v}', loraEmpty: 'В папках LoRA для {name} пока пусто.', loraCloud: 'Облачный режим: ваши LoRA лежат здесь, на этом компьютере. Те, что нужны сцене, студия сама отправит на облачный сервер перед съёмкой — один раз, дальше они там.', loraOnCloud: 'Уже на облачном диске ({n}):',
     parts: 'Части карточки', spare: 'Другие файлы: {n}', spareHide: 'Свернуть', whereFrom: 'Где искать веса и токен Hugging Face',
-    paramsText: 'Значения по умолчанию. Сохраняются сразу.',
+    paramsText: 'Значения по умолчанию. Сохраняются сразу.', switchOn: 'включено', switchOff: 'выключено', switchDefault: 'по умолчанию: {v}',
     strengthText: 'Сила — с ней LoRA встаёт в сцену или узел, там её можно поменять. Обычно 0,8.',
     loraFind: 'Найти среди {n} LoRA', strengthAria: 'Сила {name}', strengthReset: 'Вернуть 0,8', loraNone: 'Ничего не нашлось по «{v}».',
     v2vLora: 'для «Видео → видео»',
@@ -77,8 +77,8 @@ export default {
     kind: { weights: 'not LoRA', unreadable: 'broken' },
     can: { sound: 'its own sound', noSound: 'no sound', voice: "lines in the video's language", refs: 'faces from photos', track: 'shoots to a track', upTo: 'scenes up to {n} s' },
     checking: 'Checking what is installed…', readFailed: 'Could not read the models',
-    title: 'Models and settings',
-    intro: 'Video, photo and the writer: every model with what it can do, its weights, parameters and LoRA. Downloads run in the background, one file at a time; a file put into a folder shows up here by itself.',
+    title: 'Settings',
+    intro: 'General settings, where the models run, then video, photo and the writer: every model with what it can do, its weights, parameters and LoRA. Downloads run in the background, one file at a time; a file put into a folder shows up here by itself.',
     h3Licence: "The MiniMax H3 license does not apply in the United States, the EU, the United Kingdom and South Korea. By installing H3 you are responsible for complying with its terms; the author of Remiqora Video bears no responsibility.", h3Accept: 'I have read and accept', h3Link: 'License text',
     addSets: 'Add model sets', addSetsTitle: 'The installer downloads the official sets that are missing; the app keeps running',
     onDisk: 'Models on disk', sections: 'Sections', allThere: 'everything is in place', missing: 'something is missing',
@@ -122,7 +122,7 @@ export default {
     loraFor: 'LoRA for {name}', loraHint: '{n}; put .safetensors into the folder — they show up by themselves', loraHintBoard: ', picked in the storyboard, as for H3',
     rank: 'rank {v}', trigger: 'trigger: {v}', loraEmpty: 'The LoRA folders for {name} are empty so far.', loraCloud: 'Cloud mode: your LoRA stay here, on this computer. The ones a scene needs go to the cloud server by themselves before the shoot - once, then they stay there.', loraOnCloud: 'On the cloud disk already ({n}):',
     parts: 'Card parts', spare: 'Other files: {n}', spareHide: 'Fold', whereFrom: 'Where to look for weights, and the Hugging Face token',
-    paramsText: 'The defaults. Saved at once.',
+    paramsText: 'The defaults. Saved at once.', switchOn: 'on', switchOff: 'off', switchDefault: 'default: {v}',
     strengthText: 'Strength is what a LoRA starts with when added to a scene or a node; you can change it there. Usually 0.8.',
     loraFind: 'Find among {n} LoRA', strengthAria: '{name} strength', strengthReset: 'Back to 0.8', loraNone: 'Nothing matches “{v}”.',
     v2vLora: 'for «Video → video»',

@@ -15,7 +15,7 @@ import WriterThinking from './WriterThinking.vue'
 import { post } from '../lib/api'
 import { S, banner, live, pollJobs } from '../lib/store'
 import { P, liveAuto } from '../lib/project'
-import { type AutoState, type Step, STEP_ICON, stageIdsOf, stepOf, stepSecs, stepsDone, stepsRun } from '../lib/home'
+import { type AutoState, type BeatProgress, type Step, BEAT_ICON, BEAT_STEPS, STEP_ICON, beatCount, isBeatState, stageIdsOf, stepOf, stepSecs, stepsDone, stepsRun } from '../lib/home'
 import { mins } from '../lib/format'
 import type { Job } from '../lib/types'
 
@@ -32,18 +32,38 @@ const stages = computed(() => auto.value?.stages || [])
 const ask = computed(() => (running.value ? ((j.value as any)?.progress?.ask || null) : null) as Record<string, any> | null)
 const project = computed(() => props.pid || (j.value?.params?.project as string | undefined) || '')
 
+// «Бит-клип»: its own seven steps (lib/home.ts BEAT_STEPS), the server's stages one to one; the counters from progress.beat
+const beat = computed(() => isBeatState(auto.value) || isBeatState(props.state) || (j.value?.params as any)?.what === 'beat' || stages.value.some((x) => x.id === 'pool' || x.id === 'pictures'))
+const beatNow = computed(() => (running.value ? auto.value?.stage : props.state && !props.state.finished ? props.state.stage : null) || null)
+const beatProg = computed(() => (j.value as any)?.progress?.beat as BeatProgress | undefined)
+const beatNum = computed(() => (running.value ? beatCount(beatNow.value, beatProg.value) : { n: '', extra: 0 }))
 // the seven steps: running - the job's own stages; not - the project's word on them
 const clip = computed(() => stages.value.some((x) => x.id === 'words') || (auto.value?.what || props.state?.what || props.state?.req?.what
   || (j.value?.params?.song || props.state?.req?.song ? 'clip' : 'story')).startsWith('clip'))
-const cur = computed<Step | null>(() => (running.value ? stepOf(auto.value?.stage, j.value) : props.state && !props.state.finished ? stepOf(props.state.stage) : null))
+const cur = computed<Step | null>(() => (beat.value ? (beatNow.value as Step | null) : running.value ? stepOf(auto.value?.stage, j.value) : props.state && !props.state.finished ? stepOf(props.state.stage) : null))
 const done = computed(() => (running.value ? stages.value.filter((x) => x.done).map((x) => x.id) : props.state?.done || []))
 const doneSteps = computed(() => stepsDone(done.value, clip.value, cur.value, !running.value && !!props.state?.finished))
-const name = (s: Step) => t(`home.step.${s}`)
+const name = (s: Step) => t(beat.value ? `beat.step.${s}` : `home.step.${s}`)
 // only the steps that run (the switches of the home's route «Как снимаем»)
 const steps = computed(() => stepsRun(running.value ? stages.value.map((x) => x.id) : stageIdsOf(props.state?.req)))
 // the row as the home's route draws it (RouteSteps.vue): done, now, still to come, each as wide as its estimate
 const secsOf = computed(() => stepSecs(stages.value))
-const items = computed<RouteItem[]>(() => steps.value.map((s) => {
+// a beat clip's row: every step the job runs (all seven when it is not running), done / now / still to come as the others
+const beatItems = computed<RouteItem[]>(() => {
+  const ids = (stages.value.length ? BEAT_STEPS.filter((s) => stages.value.some((x) => x.id === s)) : [...BEAT_STEPS]) as string[]
+  const fin = !running.value && !!props.state?.finished
+  const at = ids.indexOf(beatNow.value || '')
+  return ids.map((s, k) => {
+    const now = running.value && s === beatNow.value
+    const dn = fin || done.value.includes(s) || (!running.value && at > k)
+    const est = stages.value.find((x) => x.id === s)?.est
+    const cnt = now && beatNum.value.n ? `${beatNum.value.n}${beatNum.value.extra ? ' · ' + t(s === 'pictures' ? 'beat.redraws' : 'beat.reshoots', { n: beatNum.value.extra }) : ''}` : ''
+    // the bar draws its tiles by the home's Step type; a beat step's id only keys the tile
+    return { id: s as Step, name: name(s as Step), icon: BEAT_ICON[s as keyof typeof BEAT_ICON], state: now ? 'now' : dn ? 'done' : 'on',
+      time: now ? cnt || t('home.stepNow') : dn || est == null ? '' : t('home.stepTime', { t: mins(est) }), label: t(`beat.stepTitle.${s}`) } as RouteItem
+  })
+})
+const items = computed<RouteItem[]>(() => beat.value ? beatItems.value : steps.value.map((s) => {
   const now = s === cur.value, done = doneSteps.value.has(s) && !now, sec = secsOf.value[s]
   return { id: s, name: name(s), icon: STEP_ICON[s], state: now ? 'now' : done ? 'done' : 'on', 
     time: now ? count.value || t('home.stepNow') : done || sec == null ? '' : t('home.stepTime', { t: mins(sec) }), label: t(`home.stepTitle.${s}`) }
@@ -61,6 +81,8 @@ const pct = computed(() => {
     const pr = jj.progress || {}
     let f = a.t && jj.started ? (jj.elapsed - (a.t - jj.started)) / Math.max(1, st.est) : 0
     if (a.stage === 'frames' && pr.total) f = pr.done / pr.total
+    if (a.stage === 'pictures' && pr.beat?.pictures?.total) f = pr.beat.pictures.done / pr.beat.pictures.total
+    if (a.stage === 'scenes' && pr.beat?.scenes?.total) f = pr.beat.scenes.done / pr.beat.scenes.total
     if (a.stage === 'render' && pr.scenes?.length) f = pr.scenes.filter((x: any) => ['done', 'cached'].includes(x.status)).length / pr.scenes.length
     sum += Math.max(1, st.est) * Math.min(0.97, Math.max(0, f))
   }
@@ -70,6 +92,7 @@ const left = computed(() => (j.value?.estimate && j.value.estimate > j.value.ela
 // a scene count while shooting: «Съёмка 12/29»
 const count = computed(() => {
   const pr = (j.value as any)?.progress || {}
+  if (beat.value) return beatNum.value.n ? `${beatNum.value.n}${beatNum.value.extra ? ' · ' + t(cur.value === 'pictures' as any ? 'beat.redraws' : 'beat.reshoots', { n: beatNum.value.extra }) : ''}` : ''
   if (cur.value === 'shoot' && pr.scenes?.length) return `${pr.scenes.filter((x: any) => ['done', 'cached'].includes(x.status)).length}/${pr.scenes.length}`
   if (cur.value === 'frames' && pr.total) return `${pr.done || 0}/${pr.total}`
   return ''
@@ -100,7 +123,7 @@ const resuming = computed(() => !!project.value && !!liveAuto(project.value))
 async function resume() {
   try { const r = await post(`/api/projects/${project.value}/autopilot`); S.jobs = [...S.jobs, r] } catch (e) { banner((e as Error).message) }
 }
-const stageName = (s?: string | null) => name(stepOf(s || 'words') || 'words')
+const stageName = (s?: string | null) => name((beat.value ? s || 'words' : stepOf(s || 'words') || 'words') as Step)
 </script>
 
 <template>

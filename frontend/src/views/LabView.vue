@@ -63,7 +63,7 @@ const wide = ref(false)
 const enOnly = computed(() => TL.code === 'en')
 watchEffect(() => { if (enOnly.value) F.lang = 'en' })
 const langs = computed<Lang[]>(() => (enOnly.value ? ['en'] : wide.value ? ['ru', 'en'] : [F.lang]))
-// the first tab is the texts' language itself: pick another right here (the same setting as «Модели и настройки» → «Сценарист»)
+// the first tab is the texts' language itself: pick another right here (the same setting as «Настройки» → «Сценарист»)
 async function pickLang(e: Event) {
   const code = (e.target as HTMLSelectElement).value
   try { await api('/api/lang', { method: 'PUT', body: { text: code } }); setTextLang(code); if (code !== 'en') F.lang = 'ru' } catch (err) { banner((err as Error).message) }

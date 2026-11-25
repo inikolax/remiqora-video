@@ -155,7 +155,8 @@ async def engine(job: Job, model: str, loras: list[dict], ref: bool = False) -> 
     await llm.SERVER.stop()   # normally already down: a writer job stops it after itself
     await COMFY.ensure()
     from .engine.worker import model_folders
-    if getattr(COMFY, "folders", None) is not None and COMFY.folders != model_folders():
+    if (getattr(COMFY, "folders", None) is not None and COMFY.folders != model_folders()) or \
+            getattr(COMFY, "attention", config.COMFY_ATTENTION) != config.COMFY_ATTENTION:
         job.phase = "starting"   # a weights folder appeared since the worker started (a download): it must know it
         await COMFY.stop()
         await COMFY.ensure()
@@ -194,14 +195,14 @@ def _worker_died() -> bool:
 def scene_graph(model: str, prompt: str, width: int, height: int, length: int, seed: int, prefix: str,
                 names: list[tuple[str, float]], first_frame: Optional[str] = None, ref_images: list[str] = (),
                 track: Optional[str] = None, track_start: float = 0.0, voice: Optional[dict] = None,
-                last_frame: Optional[str] = None) -> dict:
+                last_frame: Optional[str] = None, audio: Optional[str] = None, audio_from: float = 0.0) -> dict:
     """A scene's graph for the worker, by its model (a videomodels card id) - what shoot() sends, and what the scene's
     «Граф для ComfyUI» shows without shooting (render.scene_graph_preview)."""
     from . import videomodels
     from .engine import other_graphs
     card = videomodels.card(model)
     if card.id == "h3":
-        return graphs.scene(prompt, width, height, length, seed, prefix, names, first_frame, list(ref_images))
+        return graphs.scene(prompt, width, height, length, seed, prefix, names, first_frame, list(ref_images), audio=audio, audio_from=audio_from)
     if videomodels.family(card) == "wan5b":
         return other_graphs.wan(prompt, width, height, length, seed, prefix, names, first_frame, card.id == "wan5b_fast")
     if card.id == "ltx25":
@@ -212,13 +213,15 @@ def scene_graph(model: str, prompt: str, width: int, height: int, length: int, s
 async def shoot(job: Job, prompt: str, width: int, height: int, length: int, seed: int, loras: list[dict],
                 first_frame: Optional[str], prefix: str, quality: str = "draft",
                 ref_images: list[str] = (), model: str = "h3", track: Optional[str] = None,
-                track_start: float = 0.0, voice: Optional[dict] = None, last_frame: Optional[str] = None) -> tuple[str, Optional[str]]:
+                track_start: float = 0.0, voice: Optional[dict] = None, last_frame: Optional[str] = None,
+                audio: Optional[str] = None, audio_from: float = 0.0) -> tuple[str, Optional[str]]:
     """One scene through ComfyUI: (the mp4, the last frame png) in COMFY_OUTPUT. job.phase / step follow it; the time
     goes to timings.py, so the next estimates are this machine's. `model` - a videomodels card (phase 10): its graph
     (other_graphs.py), its sampler's steps; another model than the one in memory frees the worker first, so two 20 GB
     models never share it. `track` (LTX 2.3): a file in COMFY_INPUT the picture is made to, from `track_start`. `voice`
     (LTX 2.3, ID-LoRA): {lora: {id, strength}, voice: a file in COMFY_INPUT, from, secs, identity}. `last_frame` (LTX,
-    flf2v): a picture in COMFY_INPUT the scene ends on."""
+    flf2v): a picture in COMFY_INPUT the scene ends on. `audio` (H3): a file in COMFY_INPUT the scene is drawn under,
+    from `audio_from` seconds of it (graphs.scene)."""
     from . import videomodels
     from .engine import other_graphs
     card = videomodels.card(model)
@@ -253,7 +256,9 @@ async def shoot(job: Job, prompt: str, width: int, height: int, length: int, see
         idv = {**voice, "lora": lname, "strength": lstrength}
     t0, cold = time.time(), not COMFY.warm
     job.phase = "loading"
-    graph = scene_graph(card.id, prompt, width, height, length, seed, prefix, names, first_frame, ref_images, track, track_start, idv, last_frame)
+    graph = scene_graph(card.id, prompt, width, height, length, seed, prefix, names, first_frame, ref_images, track, track_start, idv, last_frame, audio, audio_from)
+    if h3 and KEPT and (k := graphs.te_key(graph)) in KEPT:
+        graphs.use_kept(graph, k)   # its prompt was encoded ahead (encode_ahead): the TE isn't loaded for it
     try:
         files = output_files(await COMFY.run(graph, on_node, on_progress))
     except Interrupted:
@@ -277,6 +282,40 @@ async def shoot(job: Job, prompt: str, width: int, height: int, length: int, see
     COMFY.warm = True
     timings.record(videomodels.timing_key(card, quality, bool(ref_images) and h3), width, height, length, len(loras), time.time() - t0, cold)
     return mp4, next((f for f in files if f.endswith(".png")), None)
+
+
+async def encode_ahead(job: Job, scene_graphs: list[dict]) -> int:
+    """The text-encoder pass ahead of a run's H3 scenes: the conditioning parts of their graphs (graphs.text_part) in
+    one graph, so the 32B TE loads once for them all instead of once a scene (and H3 after it). The worker keeps their
+    conditionings by a key of their inputs (graphs.te_key, h3nodes.STORE); shoot() gives a scene with such a key its
+    kept one (graphs.use_kept). A scene whose inputs turn out other (a retake with another prompt) has another key and
+    encodes as before, so nothing a scene makes depends on this pass. Plain H3 scenes only (Ref2VA's aren't kept).
+    Best effort: an error here is only logged. -> the number of scenes encoded."""
+    keys = list(dict.fromkeys(k for k in map(graphs.te_key, scene_graphs) if k))
+    if not config.H3_TE_AHEAD or len(keys) < 2:
+        return 0   # one scene: its own graph loads the TE the same once
+    g: dict = {}
+    for n, sg in enumerate(scene_graphs):
+        if (k := graphs.te_key(sg)) in keys and not any(x.get("inputs", {}).get("key") == k for x in g.values()):
+            g.update(graphs.text_part(sg, f"te{n}_", k))
+    try:
+        await engine(job, "h3", [])
+        job.phase, job.step = "encoding", 0
+        t0 = time.time()
+        await COMFY.run(g, lambda node: None, lambda value, maximum, node: None)
+        job.progress.setdefault("te_ahead", []).append({"scenes": len(keys), "seconds": round(time.time() - t0, 1)})
+    except Interrupted:
+        raise
+    except Exception as e:  # noqa: BLE001 - the scenes encode their own prompts then, as without this pass
+        console.trace(f"job {job.id} encode_ahead: {e}")
+        return 0
+    KEPT.update(keys)
+    return len(keys)
+
+
+# the conditionings the worker keeps (h3nodes.STORE) by graphs.te_key: a scene with one of these takes it from there
+# (graphs.use_kept); one the worker has lost since (a restart, «free», more than it keeps) is encoded by the node itself
+KEPT: set[str] = set()
 
 
 async def _run_scene(job: Job) -> None:

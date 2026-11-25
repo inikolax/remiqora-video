@@ -115,6 +115,12 @@ _EN = {
     "Сходство лица на кадре сцены с фото героя (SFace, 0–1), ниже которого пробуется другой сид. Общий план с мелким лицом даёт ~0,3 на той же героине.":
         "How alike the face on a scene's frame is to the hero's photo (SFace, 0-1); below this another seed is tried. A wide shot with a small face scores ~0.3 on the same heroine.",
     "Сколько сидов пробовать, пока лицо не пройдёт порог; лучший остаётся.": "How many seeds to try until the face passes the threshold; the best one stays.",
+    "Энкодер пачкой (H3)": "Batch prompt encoding (H3)",
+    "Кодирует промты всех сцен H3 одного запуска за одну загрузку энкодера текста: экономит ~10–15 с на сцену, видео то же; занимает ~3 ГБ ОЗУ больше.":
+        "Encodes the prompts of all H3 scenes of a run in one text-encoder load: saves ~10-15 s per scene, same video; uses ~3 GB more RAM.",
+    "Быстрое внимание (Comfy Kitchen int8)": "Fast attention (Comfy Kitchen int8)",
+    "Ускоряет H3 (~23 %) и WAN 5B (~12 %); на LTX, Krea и FLUX.2 не влияет.":
+        "Speeds up H3 (~23 %) and WAN 5B (~12 %); no effect on LTX, Krea and FLUX.2.",
     "Основная модель": "Main model", "Энкодер текста": "Text encoder", "VAE видео": "Video VAE", "VAE звука": "Audio VAE",
     "Модель Ref2VA": "Ref2VA model", "Апскейл латента ×2": "Latent upscale ×2", "Модель": "Model",
     "Снимает сцены: из текста, с последнего кадра, с фото.": "Shoots scenes: from text, from the last frame, from a photo.",
@@ -324,9 +330,10 @@ def _tool(key: str, name: str, text: str, kind: str = "file", check: Optional[Pa
 
 # the page's groups: video models, picture models, the writer, the rest; Ref2VA is H3's (shown under it), the H3 LoRA too
 GROUPS = {"h3": "video", "ref": "video", "ltx25": "video", "ltx23": "video", "wan5b": "video", "krea": "photo", "flux2": "photo",
-          "llm": "writer", "lora": "video", "tools": "common"}
+          "llm": "writer", "lora": "video"}
 # a model's parameters (settings.NUMBERS): section -> [(key, title, text)]
 PARAMS = {
+    "h3": [("H3_TE_AHEAD", "Энкодер пачкой (H3)", "Кодирует промты всех сцен H3 одного запуска за одну загрузку энкодера текста: экономит ~10–15 с на сцену, видео то же; занимает ~3 ГБ ОЗУ больше.")],
     "krea": [("KREA_STEPS", "Шагов", "Turbo: 8 без CFG. Меньше — быстрее и грубее; больше 8 почти ничего не добавляет.")],
     "flux2": [("FLUX2_STEPS", "Шагов", "Distilled: 4. Меньше — быстрее, но мягче детали."),
               ("FRAME_FACE_MIN", "Порог лица", "Сходство лица на кадре сцены с фото героя (SFace, 0–1), ниже которого пробуется другой сид. Общий план с мелким лицом даёт ~0,3 на той же героине."),
@@ -334,13 +341,45 @@ PARAMS = {
 }
 
 
+# the engine's switches of the «Настройки» page (not a model's): they act on the whole local ComfyUI worker
+ENGINE_PARAMS = [("COMFY_ATTENTION", "Быстрое внимание (Comfy Kitchen int8)",
+                  "Ускоряет H3 (~23 %) и WAN 5B (~12 %); на LTX, Krea и FLUX.2 не влияет.")]
+
+
 def _params(sec: str) -> list[dict]:
+    return _param_rows(PARAMS.get(sec, []))
+
+
+def _param_rows(items) -> list[dict]:
     out = []
-    for key, title, text in PARAMS.get(sec, []):
+    for key, title, text in items:
+        if key in settings.SWITCHES:
+            on = settings.SWITCHES[key][1]
+            out.append({"key": key, "kind": "switch", "title": _t(title), "text": _t(text), "value": getattr(config, key) == on,
+                        "default": settings.DEFAULTS[key] == on, "own": key in settings.own()})
+            continue
         kind, lo, hi = settings.NUMBERS[key]
         out.append({"key": key, "title": _t(title), "text": _t(text), "value": getattr(config, key), "default": settings.DEFAULTS[key],
                     "min": lo, "max": hi, "step": 1 if kind is int else 0.05, "own": key in settings.own()})
     return out
+
+
+def tools_view() -> list[dict]:
+    """The paths the «Настройки» page edits: the ComfyUI core and its Python, llama-server, ffmpeg, RIFE, RTX Video."""
+    return [
+        _tool("COMFY_DIR", i18n.L("Ядро ComfyUI", "ComfyUI core"),
+              i18n.L("Папка, в которой лежит ComfyUI\\comfy: модель H3, энкодер, VAE, сэмплер (воркер импортирует его). Своё — engine\\ComfyUI (install.bat), иначе — из Comfy Desktop",
+                     "The folder that holds ComfyUI\\comfy: the H3 model, the encoder, the VAE, the sampler (the worker imports it). Our own is engine\\ComfyUI (install.bat), otherwise the one from Comfy Desktop"),
+              "folder", config.COMFY_DIR / "ComfyUI" / "comfy"),
+        _tool("COMFY_PYTHON", i18n.L("Python для H3", "Python for H3"),
+              i18n.L("python.exe с torch и CUDA, comfy-kitchen, comfy-aimdo; не задан — engine\\.venv или venv внутри ядра",
+                     "python.exe with torch and CUDA, comfy-kitchen, comfy-aimdo; when not set, engine\\.venv or the venv inside the core")),
+        _tool("LLAMA_SERVER_BIN", "llama-server", i18n.L("Запускает модель сценариста", "Runs the writer's model")),
+        _tool("FFMPEG", "ffmpeg", i18n.L("Склейка, звук, кодирование; можно просто имя, если он в PATH", "Joining, sound, encoding; just the name will do if it is on PATH"), "command"),
+        _tool("FFPROBE", "ffprobe", i18n.L("Длина и дорожки файлов; обычно рядом с ffmpeg", "Files' length and tracks; usually next to ffmpeg"), "command"),
+        _tool("RIFE_BIN", "RIFE", i18n.L("48 кадров в секунду (rife-ncnn-vulkan.exe, папка модели рядом)", "48 frames per second (rife-ncnn-vulkan.exe, the model folder next to it)")),
+        _tool("RTX_VSR", "RTX Video", i18n.L("1080p / 4K и HDR10 (rtx_vsr.exe)", "1080p / 4K and HDR10 (rtx_vsr.exe)")),
+    ]
 
 
 def snapshot() -> dict:
@@ -378,25 +417,10 @@ def snapshot() -> dict:
     flux2 = [x for x in slots if x["section"] == "flux2"]
     sections["flux2"] = {"title": "FLUX.2 Klein", "slots": flux2, "loras": _ltx_lora_view("flux2"), "problem": picture.edit_problem(), "ok": all(x["ok"] for x in flux2),
                          "gb": _gb(sum((next((f["size"] for f in x["files"] if f["selected"] and f["installed"]), 0) or 0) for x in flux2))}
-    tools = [
-        _tool("COMFY_DIR", i18n.L("Ядро ComfyUI", "ComfyUI core"),
-              i18n.L("Папка, в которой лежит ComfyUI\\comfy: модель H3, энкодер, VAE, сэмплер (воркер импортирует его). Своё — engine\\ComfyUI (install.bat), иначе — из Comfy Desktop",
-                     "The folder that holds ComfyUI\\comfy: the H3 model, the encoder, the VAE, the sampler (the worker imports it). Our own is engine\\ComfyUI (install.bat), otherwise the one from Comfy Desktop"),
-              "folder", config.COMFY_DIR / "ComfyUI" / "comfy"),
-        _tool("COMFY_PYTHON", i18n.L("Python для H3", "Python for H3"),
-              i18n.L("python.exe с torch и CUDA, comfy-kitchen, comfy-aimdo; не задан — engine\\.venv или venv внутри ядра",
-                     "python.exe with torch and CUDA, comfy-kitchen, comfy-aimdo; when not set, engine\\.venv or the venv inside the core")),
-        _tool("LLAMA_SERVER_BIN", "llama-server", i18n.L("Запускает модель сценариста", "Runs the writer's model")),
-        _tool("FFMPEG", "ffmpeg", i18n.L("Склейка, звук, кодирование; можно просто имя, если он в PATH", "Joining, sound, encoding; just the name will do if it is on PATH"), "command"),
-        _tool("FFPROBE", "ffprobe", i18n.L("Длина и дорожки файлов; обычно рядом с ffmpeg", "Files' length and tracks; usually next to ffmpeg"), "command"),
-        _tool("RIFE_BIN", "RIFE", i18n.L("48 кадров в секунду (rife-ncnn-vulkan.exe, папка модели рядом)", "48 frames per second (rife-ncnn-vulkan.exe, the model folder next to it)")),
-        _tool("RTX_VSR", "RTX Video", i18n.L("1080p / 4K и HDR10 (rtx_vsr.exe)", "1080p / 4K and HDR10 (rtx_vsr.exe)")),
-    ]
-    sections["tools"] = {"title": i18n.L("Инструменты", "Tools"), "tools": tools, "ok": all(t["ok"] for t in tools), "gb": None}
     for k, s in sections.items():
         s["group"] = GROUPS[k]
         s["params"] = _params(k)
-    total = sum(s["gb"] or 0 for k, s in sections.items() if k != "tools")
+    total = sum(s["gb"] or 0 for s in sections.values())
     act = downloads.active()
     return {"sections": sections, "gb": round(total, 1), "engine_mode": cloud_state.load()["mode"], "where": _where(),
             "cloud_files": {"source": cloud["source"], "at": cloud["at"], "count": len(cloud["files"]),
@@ -404,6 +428,40 @@ def snapshot() -> dict:
             "roots": [str(d) for d in config.H3_MODEL_ROOTS], "ref_dir": str(config.H3_REF_DIR),
             "ref_tool": _tool("H3_REF_DIR", i18n.L("Папка Ref2VA", "Ref2VA folder"), i18n.L("В ней diffusion_models и loras", "Holds diffusion_models and loras"), "folder"),
             "downloading": act.public() if act else None, "token": downloads.has_token(), "settings": settings.current()}
+
+
+def _folder_list(key: str, title: str, text: str) -> dict:
+    """A folder list of the settings: what the page shows and saves back under the same settings key."""
+    return {"key": key, "title": title, "text": text, "own": key in settings.own(),
+            "dirs": [{"dir": str(d), "exists": Path(d).is_dir()} for d in getattr(config, key)]}
+
+
+def app_settings() -> dict:
+    """The «Настройки» page: the engine's switch, the folders and tools, the writer's defaults. Every value is a key of
+    settings.py (the same data/settings.json), only the page is new."""
+    from .engine.comfy import COMFY
+    llm_view = _llm_view()
+    folders_ = [
+        _folder_list("H3_MODEL_ROOTS", i18n.L("Веса H3", "H3 weights"),
+                     i18n.L("Корни, в которых ищутся файлы H3 (diffusion_models, text_encoders, vae).", "Roots searched for the H3 files (diffusion_models, text_encoders, vae).")),
+        _folder_list("LORA_DIRS", i18n.L("LoRA для H3", "LoRA for H3"), i18n.L("Что в них лежит, видно на карточке модели.", "What lies in them shows on the model's card.")),
+        _folder_list("LTX25_LORA_DIRS", i18n.L("LoRA для LTX 2.5", "LoRA for LTX 2.5"), ""),
+        _folder_list("LTX23_LORA_DIRS", i18n.L("LoRA для LTX 2.3", "LoRA for LTX 2.3"), ""),
+        _folder_list("WAN_LORA_DIRS", i18n.L("LoRA для WAN 2.2 5B", "LoRA for WAN 2.2 5B"), ""),
+        _folder_list("KREA_LORA_DIRS", i18n.L("LoRA для Krea 2", "LoRA for Krea 2"), ""),
+        _folder_list("FLUX2_LORA_DIRS", i18n.L("LoRA для FLUX.2 Klein", "LoRA for FLUX.2 Klein"), ""),
+        _folder_list("LLM_DIRS", i18n.L("Модели сценариста (GGUF)", "Writer models (GGUF)"), ""),
+    ]
+    tools = [*tools_view(), _tool("H3_REF_DIR", i18n.L("Папка Ref2VA", "Ref2VA folder"), i18n.L("В ней diffusion_models и loras", "Holds diffusion_models and loras"), "folder")]
+    default = next((m["name"] for m in llm_view["models"] if m["default"]), None)
+    return {
+        "engine": {"params": _param_rows(ENGINE_PARAMS), "mode": cloud_state.load()["mode"], "state": COMFY.state(),
+                   "extra_args": " ".join(config.COMFY_ARGS)},
+        "folders": folders_, "tools": tools,
+        "writer": {"models": [{"name": m["name"], "gb": m["gb"], "default": m["default"]} for m in llm_view["models"]], "default": default,
+                   "ctx": llm_view["ctx"], "contexts": llm_view["contexts"], "server_ok": llm_view["server_ok"]},
+        "values": settings.current(),
+    }
 
 
 def known_folders() -> list[Path]:

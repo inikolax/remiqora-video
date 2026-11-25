@@ -1,0 +1,556 @@
+{
+ "format": "h3studio-graph-template",
+ "version": 1,
+ "order": 5,
+ "name": "Fashion glow-up",
+ "about": "One photo → a vertical fashion clip: FLUX.2 Klein puts the same person into five looks, each a 4 s scene; joined into a video and, with a song, cut to its beat.",
+ "nodes": [
+  {
+   "id": "note",
+   "type": "note",
+   "position": {
+    "x": 0,
+    "y": -600
+   },
+   "data": {
+    "text": "Fashion glow-up: one photo → a vertical fashion clip in the spirit of the «at home → night out» transitions.\n\n1. Create the graph in 9:16 and upload a photo into the «Photo» node: facing the camera, the face large, even light.\n2. Five FLUX.2 Klein «Pictures» take the photo as their reference and draw the same person at home, on a night street, in a lobby, on a runway and on a cover. Each is the first frame of its own «Scene» (4 s); the photo also goes into the «faces» input so that Ref2VA keeps the face.\n3. «Shoot all»: «Join» → «Output» gives a video of about 20 s and a phone copy. Put a song into «Song» and «Beat montage» cuts the same scenes to the beat of its drop into the second «Output»; without a song that branch simply waits.\n4. The looks change in the «Pictures» prompts. In the scene prompts don't describe the place or the clothes: the picture gives them."
+   }
+  },
+  {
+   "id": "ph",
+   "type": "photo",
+   "position": {
+    "x": 0,
+    "y": 600
+   },
+   "data": {
+    "title": "Photo"
+   }
+  },
+  {
+   "id": "k1",
+   "type": "picture",
+   "position": {
+    "x": 360,
+    "y": 0
+   },
+   "data": {
+    "title": "At home",
+    "model": "flux2",
+    "seed": 11,
+    "prompt": "The person in the first image: exactly the same face, the same haircut and the same clothes. A new photograph of them: a selfie-style chest-up portrait at home in the evening, warm lamp light, a plain bedroom wall behind them, looking straight into the camera, one hand touching the hair. Phone-camera look, natural skin, vertical framing. No text, no logos."
+   }
+  },
+  {
+   "id": "k2",
+   "type": "picture",
+   "position": {
+    "x": 360,
+    "y": 320
+   },
+   "data": {
+    "title": "Night street",
+    "model": "flux2",
+    "seed": 12,
+    "prompt": "The person in the first image: exactly the same face and the same haircut (its length and colour), now in an oversized black leather jacket over a plain black top. A new photograph of them: a windy city street at night beside a glass office tower, cold city lights and bokeh behind them, hair moved by the wind, chest-up, a calm confident look straight into the camera. Cinematic night photo, vertical framing. No text, no logos."
+   }
+  },
+  {
+   "id": "k3",
+   "type": "picture",
+   "position": {
+    "x": 360,
+    "y": 640
+   },
+   "data": {
+    "title": "Lobby",
+    "model": "flux2",
+    "seed": 13,
+    "prompt": "The person in the first image: exactly the same face and the same haircut (its length and colour), now in a sharp tailored black coat, dark sunglasses in one hand. A new photograph of them: walking through a marble office lobby with tall glass walls, reflections on the polished floor, low camera angle, full length. Editorial fashion photo, vertical framing. No text, no logos."
+   }
+  },
+  {
+   "id": "k4",
+   "type": "picture",
+   "position": {
+    "x": 360,
+    "y": 960
+   },
+   "data": {
+    "title": "Runway",
+    "model": "flux2",
+    "seed": 14,
+    "prompt": "The person in the first image: exactly the same face and the same haircut (its length and colour), now in a monochrome tailored outfit: a structured jacket and wide trousers. A new photograph of them: mid-stride on a fashion-show runway, bright camera flashes and a dark audience behind them, full length, strong editorial look, vertical framing. No text, no logos."
+   }
+  },
+  {
+   "id": "k5",
+   "type": "picture",
+   "position": {
+    "x": 360,
+    "y": 1280
+   },
+   "data": {
+    "title": "Cover",
+    "model": "flux2",
+    "seed": 15,
+    "prompt": "The person in the first image: exactly the same face and the same haircut (its length and colour), now in a crisp white shirt with the collar up and bold jewellery. A new photograph of them: a magazine-cover style studio portrait against a plain pale backdrop, hard direct flash, a sharp shadow on the wall, chest-up, the chin slightly lifted, looking into the camera. High-fashion editorial photo, vertical framing. No text, no letters, no logos."
+   }
+  },
+  {
+   "id": "p1",
+   "type": "prompt",
+   "position": {
+    "x": 720,
+    "y": 0
+   },
+   "data": {
+    "title": "At home",
+    "text": "Continue seamlessly from <Picture 1>. Everything stays as in <Picture 1>: the same person, clothes, room, light, colours and framing.\n\nCamera: static camera, selfie framing.\n\nTimeline:\n[0s-2s] They look into the camera and run a hand slowly through the hair.\n[2s-4s] A small knowing half-smile, the head tilts slightly.\n\nAudio: the quiet hum of a room, no music.\n\nKeep the face, hair and outfit exactly as in the picture. No new people. No text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "p2",
+   "type": "prompt",
+   "position": {
+    "x": 720,
+    "y": 320
+   },
+   "data": {
+    "title": "Night street",
+    "text": "Continue seamlessly from <Picture 1>. Everything stays as in <Picture 1>: the same person, clothes, street, light, colours and framing.\n\nCamera: static camera, a slight handheld feel.\n\nTimeline:\n[0s-2s] The wind moves the hair and the jacket; they turn their head toward the camera.\n[2s-4s] A steady confident gaze, a slow blink, one hand lifts the jacket collar.\n\nAudio: night wind, distant traffic, no music.\n\nKeep the face, hair and outfit exactly as in the picture. No new people. No text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "p3",
+   "type": "prompt",
+   "position": {
+    "x": 720,
+    "y": 640
+   },
+   "data": {
+    "title": "Lobby",
+    "text": "Continue seamlessly from <Picture 1>. Everything stays as in <Picture 1>: the same person, clothes, hall, light, colours and framing.\n\nCamera: low angle, slowly pulling back in front of them.\n\nTimeline:\n[0s-2s] They walk toward the camera with a slow confident stride; reflections slide across the polished floor.\n[2s-4s] They put the sunglasses on without slowing down.\n\nAudio: footsteps echoing in a large hall, no music.\n\nKeep the face, hair and outfit exactly as in the picture. No new people. No text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "p4",
+   "type": "prompt",
+   "position": {
+    "x": 720,
+    "y": 960
+   },
+   "data": {
+    "title": "Runway",
+    "text": "Continue seamlessly from <Picture 1>. Everything stays as in <Picture 1>: the same person, clothes, runway, light, colours and framing.\n\nCamera: static camera at the end of the runway.\n\nTimeline:\n[0s-2s] They walk straight toward the camera; camera flashes blink behind them.\n[2s-4s] They stop, turn a shoulder to the camera and hold the pose for the flashes.\n\nAudio: camera shutters and flashes, a murmur of the audience, no music.\n\nKeep the face, hair and outfit exactly as in the picture. No new people. No text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "p5",
+   "type": "prompt",
+   "position": {
+    "x": 720,
+    "y": 1280
+   },
+   "data": {
+    "title": "Cover",
+    "text": "Continue seamlessly from <Picture 1>. Everything stays as in <Picture 1>: the same person, clothes, backdrop, light, colours and framing.\n\nCamera: slow push in.\n\nTimeline:\n[0s-2s] They lift the chin a little and look straight into the lens.\n[2s-4s] A slow blink and a faint smile; the pose holds.\n\nAudio: the click of a studio flash, then silence, no music.\n\nKeep the face, hair and outfit exactly as in the picture. No new people. No text, subtitles, logos or watermarks."
+   }
+  },
+  {
+   "id": "s1",
+   "type": "scene",
+   "position": {
+    "x": 1080,
+    "y": 0
+   },
+   "data": {
+    "title": "At home",
+    "seconds": 4,
+    "role": "close",
+    "takes": [
+     1001
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "s2",
+   "type": "scene",
+   "position": {
+    "x": 1080,
+    "y": 320
+   },
+   "data": {
+    "title": "Night street",
+    "seconds": 4,
+    "role": "impact",
+    "takes": [
+     1002
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "s3",
+   "type": "scene",
+   "position": {
+    "x": 1080,
+    "y": 640
+   },
+   "data": {
+    "title": "Lobby",
+    "seconds": 4,
+    "role": "hero",
+    "takes": [
+     1003
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "s4",
+   "type": "scene",
+   "position": {
+    "x": 1080,
+    "y": 960
+   },
+   "data": {
+    "title": "Runway",
+    "seconds": 4,
+    "role": "hero",
+    "takes": [
+     1004
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "s5",
+   "type": "scene",
+   "position": {
+    "x": 1080,
+    "y": 1280
+   },
+   "data": {
+    "title": "Cover",
+    "seconds": 4,
+    "role": "hero",
+    "takes": [
+     1005
+    ],
+    "take": 0
+   }
+  },
+  {
+   "id": "j",
+   "type": "join",
+   "position": {
+    "x": 1440,
+    "y": 320
+   },
+   "data": {
+    "order": [
+     "s1",
+     "s2",
+     "s3",
+     "s4",
+     "s5"
+    ]
+   }
+  },
+  {
+   "id": "o1",
+   "type": "output",
+   "position": {
+    "x": 1800,
+    "y": 320
+   },
+   "data": {
+    "title": "Video",
+    "output": {
+     "size": "1080p",
+     "hdr": false,
+     "fps48": false
+    },
+    "phone": true,
+    "cover": true
+   }
+  },
+  {
+   "id": "song",
+   "type": "song",
+   "position": {
+    "x": 1080,
+    "y": 1700
+   },
+   "data": {
+    "title": "Song (optional)",
+    "length": "drop"
+   }
+  },
+  {
+   "id": "bm",
+   "type": "beat_montage",
+   "position": {
+    "x": 1440,
+    "y": 1100
+   },
+   "data": {
+    "title": "Beat montage",
+    "preset": "pop"
+   }
+  },
+  {
+   "id": "o2",
+   "type": "output",
+   "position": {
+    "x": 1800,
+    "y": 1100
+   },
+   "data": {
+    "title": "On the beat",
+    "output": {
+     "size": "off",
+     "hdr": false,
+     "fps48": false
+    },
+    "phone": true,
+    "cover": true
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "ph-k1",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "k1",
+   "targetHandle": "ref"
+  },
+  {
+   "id": "ph-k2",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "k2",
+   "targetHandle": "ref"
+  },
+  {
+   "id": "ph-k3",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "k3",
+   "targetHandle": "ref"
+  },
+  {
+   "id": "ph-k4",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "k4",
+   "targetHandle": "ref"
+  },
+  {
+   "id": "ph-k5",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "k5",
+   "targetHandle": "ref"
+  },
+  {
+   "id": "k1-s1",
+   "source": "k1",
+   "sourceHandle": "image",
+   "target": "s1",
+   "targetHandle": "start"
+  },
+  {
+   "id": "k2-s2",
+   "source": "k2",
+   "sourceHandle": "image",
+   "target": "s2",
+   "targetHandle": "start"
+  },
+  {
+   "id": "k3-s3",
+   "source": "k3",
+   "sourceHandle": "image",
+   "target": "s3",
+   "targetHandle": "start"
+  },
+  {
+   "id": "k4-s4",
+   "source": "k4",
+   "sourceHandle": "image",
+   "target": "s4",
+   "targetHandle": "start"
+  },
+  {
+   "id": "k5-s5",
+   "source": "k5",
+   "sourceHandle": "image",
+   "target": "s5",
+   "targetHandle": "start"
+  },
+  {
+   "id": "p1-s1",
+   "source": "p1",
+   "sourceHandle": "text",
+   "target": "s1",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p2-s2",
+   "source": "p2",
+   "sourceHandle": "text",
+   "target": "s2",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p3-s3",
+   "source": "p3",
+   "sourceHandle": "text",
+   "target": "s3",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p4-s4",
+   "source": "p4",
+   "sourceHandle": "text",
+   "target": "s4",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "p5-s5",
+   "source": "p5",
+   "sourceHandle": "text",
+   "target": "s5",
+   "targetHandle": "prompt"
+  },
+  {
+   "id": "ph-s1",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "s1",
+   "targetHandle": "faces"
+  },
+  {
+   "id": "ph-s2",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "s2",
+   "targetHandle": "faces"
+  },
+  {
+   "id": "ph-s3",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "s3",
+   "targetHandle": "faces"
+  },
+  {
+   "id": "ph-s4",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "s4",
+   "targetHandle": "faces"
+  },
+  {
+   "id": "ph-s5",
+   "source": "ph",
+   "sourceHandle": "image",
+   "target": "s5",
+   "targetHandle": "faces"
+  },
+  {
+   "id": "s1-j",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-j",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s3-j",
+   "source": "s3",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s4-j",
+   "source": "s4",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s5-j",
+   "source": "s5",
+   "sourceHandle": "clip",
+   "target": "j",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "j-o1",
+   "source": "j",
+   "sourceHandle": "video",
+   "target": "o1",
+   "targetHandle": "video"
+  },
+  {
+   "id": "s1-bm",
+   "source": "s1",
+   "sourceHandle": "clip",
+   "target": "bm",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s2-bm",
+   "source": "s2",
+   "sourceHandle": "clip",
+   "target": "bm",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s3-bm",
+   "source": "s3",
+   "sourceHandle": "clip",
+   "target": "bm",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s4-bm",
+   "source": "s4",
+   "sourceHandle": "clip",
+   "target": "bm",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "s5-bm",
+   "source": "s5",
+   "sourceHandle": "clip",
+   "target": "bm",
+   "targetHandle": "clips"
+  },
+  {
+   "id": "song-bm",
+   "source": "song",
+   "sourceHandle": "song",
+   "target": "bm",
+   "targetHandle": "track"
+  },
+  {
+   "id": "bm-o2",
+   "source": "bm",
+   "sourceHandle": "video",
+   "target": "o2",
+   "targetHandle": "video"
+  }
+ ]
+}

@@ -23,12 +23,13 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def duration(path: Path) -> float:
+    """The length in seconds of an audio or video file (ffprobe); EngineError when it cannot be read."""
     r = subprocess.run([config.FFPROBE, "-v", "error", "-show_entries", "format=duration", "-of", "json", str(path)],
                        capture_output=True, text=True, creationflags=NO_WINDOW)
     try:
         return float(json.loads(r.stdout)["format"]["duration"])
     except (ValueError, KeyError, TypeError) as e:
-        raise EngineError(i18n.L("Не читается как звук: ", "Can't be read as sound: ") + (r.stderr or "").strip()[-300:]) from e
+        raise EngineError(i18n.L("Не читается как звук или видео: ", "Can't be read as sound or video: ") + (r.stderr or "").strip()[-300:]) from e
 
 
 def has_audio(path: Path) -> bool:

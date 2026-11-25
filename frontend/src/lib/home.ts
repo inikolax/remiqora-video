@@ -2,8 +2,8 @@
 import type { Job } from './types'
 
 // «Поняли так»: what the box makes of what it was given - the same rules as autopilot.understand (tools/test_home.py)
-export type What = 'clip' | 'clip_hero' | 'story' | 'story_hero' | 'story_start'
-export const WHATS: What[] = ['clip', 'clip_hero', 'story', 'story_hero', 'story_start']
+export type What = 'clip' | 'clip_hero' | 'story' | 'story_hero' | 'story_start' | 'beat'
+export const WHATS: What[] = ['clip', 'clip_hero', 'story', 'story_hero', 'story_start', 'beat']
 export function understand(song: boolean, photo: boolean, text: string): What | '' {
   if (song) return photo ? 'clip_hero' : 'clip'
   if (photo) return 'story_hero'
@@ -11,8 +11,8 @@ export function understand(song: boolean, photo: boolean, text: string): What | 
 }
 // «Не так? Изменить»: the kinds that can be made of what was given (autopilot.misfit says no to the others)
 export function fits(w: What, song: boolean, photo: boolean, text: string): boolean {
-  if (w.startsWith('clip') && !song) return false
-  if (w !== 'clip' && w !== 'story' && !photo) return false
+  if ((w.startsWith('clip') || w === 'beat') && !song) return false   // a beat clip is cut on a song's drop, with a hero of its own (no photo)
+  if (w !== 'clip' && w !== 'story' && w !== 'beat' && !photo) return false
   if (w === 'story' && text.trim().length < 3) return false
   return true
 }
@@ -75,3 +75,17 @@ export function stepsDone(done: string[], clip: boolean, cur: Step | null, finis
   if (cur === 'montage') out.add('shoot')
   return out
 }
+
+// «Бит-клип» (what: 'beat'): its own seven steps on the same bar. The server's stages are the steps one to one:
+// слова песни → окно дропа → план шотов → картинки → сцены → бит-монтаж → ролик (копия для телефона и обложка)
+export const BEAT_STEPS = ['words', 'window', 'pool', 'pictures', 'scenes', 'beat', 'render'] as const
+export type BeatStep = typeof BEAT_STEPS[number]
+export const BEAT_ICON: Record<BeatStep, string> = { words: 'music', window: 'wave', pool: 'spark', pictures: 'image', scenes: 'clapper', beat: 'reel', render: 'film' }
+// the job's counters while pictures / scenes run (progress.beat): «5/16», «3/16 · пересъёмок 1» (the second part is added by the caller)
+export interface BeatProgress { pictures?: { done: number; total: number; redraws?: number }; scenes?: { done: number; total: number; reshoots?: number } }
+export function beatCount(stage: string | null | undefined, b?: BeatProgress | null): { n: string; extra: number } {
+  const c = stage === 'pictures' ? b?.pictures : stage === 'scenes' ? b?.scenes : null
+  if (!c || !c.total) return { n: '', extra: 0 }
+  return { n: `${c.done || 0}/${c.total}`, extra: (stage === 'pictures' ? (c as any).redraws : (c as any).reshoots) || 0 }
+}
+export const isBeatState = (a?: { what?: string; req?: { what?: string } } | null) => (a?.what || a?.req?.what) === 'beat'

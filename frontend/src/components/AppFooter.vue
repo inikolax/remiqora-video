@@ -33,7 +33,7 @@ const writer = computed(() => {
         <span v-else :title="t('header.localTitle')">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3ZM9 12l2 2 4-4" /></svg>
           {{ t('header.local') }}</span>
-        <router-link v-if="writer" to="/models/llm" class="foot-writer" :title="writer.ok ? t(S.sys?.where && S.sys.where !== 'local' ? 'header.writerCloud' : 'header.writerOk') : writer.problem">
+        <router-link v-if="writer" to="/settings/llm" class="foot-writer" :title="writer.ok ? t(S.sys?.where && S.sys.where !== 'local' ? 'header.writerCloud' : 'header.writerOk') : writer.problem">
           <i class="foot-dot" :class="writer.ok ? 'ok' : 'bad'" />{{ t('header.writer') }}<b v-if="writer.name">{{ writer.name }}</b><em v-if="!writer.ok">{{ writer.problem }}</em><em v-else-if="writer.note">{{ writer.note }}</em></router-link>
       </span>
       <nav class="foot-links" :aria-label="t('header.help')">

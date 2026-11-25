@@ -26,8 +26,8 @@ def token() -> str | None:
     return f.read_text(encoding="utf-8").strip() if f.exists() else None
 
 
-def tree(repo: str, folder: str) -> dict[str, dict]:
-    url = f"https://huggingface.co/api/models/{repo}/tree/main" + (f"/{urllib.parse.quote(folder)}" if folder else "")
+def tree(repo: str, folder: str, rev: str = "main") -> dict[str, dict]:
+    url = f"https://huggingface.co/api/models/{repo}/tree/{urllib.parse.quote(rev, safe='')}" + (f"/{urllib.parse.quote(folder)}" if folder else "")
     headers = {"User-Agent": "remiqora-video-manifest"}
     if t := token():
         headers["Authorization"] = f"Bearer {t}"
@@ -45,9 +45,10 @@ def main() -> int:
                 print(f"{sid}: {f['repo']}/{f['path']} is not an official file", file=sys.stderr)
                 return 1
             folder = f["path"].rsplit("/", 1)[0] if "/" in f["path"] else ""
-            if (f["repo"], folder) not in cache:
-                cache[(f["repo"], folder)] = tree(f["repo"], folder)
-            info = cache[(f["repo"], folder)].get(f["path"])
+            rev = f.get("rev") or "main"   # a pinned file is measured at its pinned commit
+            if (f["repo"], folder, rev) not in cache:
+                cache[(f["repo"], folder, rev)] = tree(f["repo"], folder, rev)
+            info = cache[(f["repo"], folder, rev)].get(f["path"])
             if not info:
                 print(f"{sid}: {f['repo']} has no {f['path']}", file=sys.stderr)
                 return 1

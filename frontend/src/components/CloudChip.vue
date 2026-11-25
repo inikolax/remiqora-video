@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The header's cloud chip (cloud mode only): the rented card, its price, how long it runs, «Стоп»; stopped - «Запустить»;
-// two minutes before the auto-stop - «Не выключать». A click opens «Модели» → «Где работают модели».
+// two minutes before the auto-stop - «Не выключать». A click opens «Настройки» → «Где работают модели».
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from './Icon.vue'
@@ -39,7 +39,7 @@ onUnmounted(() => clearTimeout(timer))
 
 <template>
   <div v-if="shown && !cloudOn" class="cloud-chip pc" :class="{ off: live.status !== 'running' }">
-    <router-link to="/models/cloud" :title="t('cloud.chip.pcTitle', { gpu: st!.pod.gpu_name })">
+    <router-link to="/settings/cloud" :title="t('cloud.chip.pcTitle', { gpu: st!.pod.gpu_name })">
       <Icon name="cloud" :size="14" />
       <template v-if="live.status === 'running'">{{ t('cloud.chip.pcRunning', { gpu: st!.pod.gpu_name, v: (live.cost || 0).toFixed(2) }) }}</template>
       <template v-else>{{ st!.pod.gpu_name }} · {{ t(`cloud.pod.${live.status || 'unknown'}`) }}</template>
@@ -49,7 +49,7 @@ onUnmounted(() => clearTimeout(timer))
       @click="act('/api/cloud/mode', { mode: 'cloud' }, 'PUT')">{{ t('cloud.chip.toCloud') }}</button>
   </div>
   <div v-if="shown && cloudOn" class="cloud-chip" :class="{ warn: live.warn, off: live.status !== 'running' }">
-    <router-link to="/models/cloud" :title="t('cloud.chip.title', { gpu: st!.pod.gpu_name, p: st!.pod.price.toFixed(2) })">
+    <router-link to="/settings/cloud" :title="t('cloud.chip.title', { gpu: st!.pod.gpu_name, p: st!.pod.price.toFixed(2) })">
       <Icon name="cloud" :size="14" />
       <template v-if="live.status === 'running'">{{ st!.pod.gpu_name }} · {{ hm(live.running_for) }} · ≈ ${{ (live.cost || 0).toFixed(2) }}</template>
       <template v-else>{{ t(`cloud.pod.${live.status || 'unknown'}`) }}</template>

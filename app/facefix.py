@@ -279,7 +279,7 @@ def crops(src: Path, w: int, h: int, runs: list[Run], tag: str) -> list[dict]:
             pc["last"] = crop
             if i in pc["want"]:
                 png = f"{pc['video'][:-4]}_a{i}.png"
-                cv2.imwrite(str(work / png), crop)
+                checks.imwrite(work / png, crop)
                 pc["anchors"].append((png, i))
             if i == pc["frames"] - 1:
                 for _ in range(pc["padded"] - pc["frames"]):   # padding: the last crop again
@@ -287,7 +287,7 @@ def crops(src: Path, w: int, h: int, runs: list[Run], tag: str) -> list[dict]:
                 for j in pc["want"]:
                     if j >= pc["frames"]:   # an anchor index in the padding: the last crop
                         png = f"{pc['video'][:-4]}_a{j}.png"
-                        cv2.imwrite(str(work / png), crop)
+                        checks.imwrite(work / png, crop)
                         pc["anchors"].append((png, j))
                 wr.close()
                 del open_[start]

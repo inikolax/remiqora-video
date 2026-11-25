@@ -45,6 +45,7 @@ NAMES = {"words": ("слова песни", "the song's words"), "write": ("сц
          "render": ("съёмка и склейка", "shooting and assembly")}
 BEST = 60.0       # «лучшая минута»: this long, holding the first chorus
 LEAD = 25.0       # ... from this long before the chorus (the verse's end leads into it)
+DROP_BUILD_BARS, DROP_BARS = 3, 8   # «drop» window (the beat clip, app/beatedit.py): bars of build before the riser bar, bars of the drop
 TRIES = 3         # the hero's tries
 FACE_ROUNDS = 2   # after the shooting: rounds of reshooting the scenes whose face is not the hero's (audit)
 # the shot plan the writer is asked for (the owner's «Ночной дрифт», 2026-10-30, held the face where the autopilot's
@@ -60,7 +61,7 @@ ASSEMBLY = 60.0   # the render's assembly, mixing and 1080p on top of the scenes
 IDEA_CLIP = 600   # a clip's idea is one line; a story's may be a page (story.NewProject)
 
 # «Поняли так»: what the home's box makes of what it was given (the page's lib/home.ts says the same)
-WHATS = ("clip", "clip_hero", "story", "story_hero", "story_start")
+WHATS = ("clip", "clip_hero", "story", "story_hero", "story_start", "beat")
 
 
 def understand(has_song: bool, has_photo: bool, text: str) -> str:
@@ -77,6 +78,8 @@ def misfit(what: str, has_song: bool, has_photo: bool, text: str) -> Optional[st
     """Why `what` («Не так? Изменить») can't be made of what was given; None - it can."""
     if what not in WHATS:
         return i18n.L(f"Неизвестно, что снимать: {what}", f"Unknown kind of video: {what}")
+    if what == "beat":
+        return None if has_song else i18n.L("Для бит-клипа нужна песня", "A beat clip needs a song")
     if what.startswith("clip") and not has_song:
         return i18n.L("Для клипа нужна песня", "A clip needs a song")
     if what in ("clip_hero", "story_hero", "story_start") and not has_photo:
@@ -110,10 +113,21 @@ class Autopilot(BaseModel):
     hero: bool = True                     # the hero's portrait is drawn (Krea / Klein from the photo); off - text or the photo as it is
     frames: bool = True                   # the scenes' start frames are drawn (FLUX.2 Klein); forced on by a look that needs them
     places: bool = True                   # «Места»: the places painted first (only with the frames)
+    # «Бит-клип» (what == "beat", app/beat_clip.py): the faceless hero's preset, the genre preset (auto - by the tempo), the pictures' model
+    hero_preset: str = Field("chrome", max_length=20)
+    # the beat hero in the user's words: `hero_text` (shared with a story's «Герой своими словами») adds details to the preset,
+    # or is the hero alone when `hero_own` («Свой герой»); `hero_face_hidden` (own hero only) off lets the hero show a face
+    hero_own: bool = False
+    hero_face_hidden: bool = True
+    genre: str = Field("auto", max_length=20)
+    picture_model: str = Field("krea2", max_length=20)
 
 
 def name(stage: str) -> str:
-    return i18n.L(*NAMES[stage])
+    if stage in NAMES:
+        return i18n.L(*NAMES[stage])
+    from . import beat_clip
+    return beat_clip.name(stage)
 
 
 def what_of(req: Autopilot) -> str:
@@ -136,6 +150,9 @@ def needs_frame(look_id: str) -> bool:
 def stages_of(req: Autopilot) -> tuple[str, ...]:
     """The stages this request runs: a story has no song's words; the trial scene only when the user is asked; «пишу
     сам» stops at the cut scenes (the board opens); the switches drop the hero, the places and the frames."""
+    if what_of(req) == "beat":
+        from . import beat_clip
+        return beat_clip.STAGES
     if req.script == "own":
         return tuple(x for x in STAGES[:2] if x != "words" or is_clip(req))
     frames = req.frames or needs_frame(req.look)
@@ -143,11 +160,27 @@ def stages_of(req: Autopilot) -> tuple[str, ...]:
     return tuple(x for x in STAGES if (x != "words" or is_clip(req)) and (x != "trial" or req.ask) and not skip.get(x))
 
 
-def window(sid: str, length: str, seconds: Optional[float] = None, start: float = 0.0) -> tuple[float, float]:
-    """(start, seconds) of the song the clip takes: the user's own piece, the whole song, or a minute (`seconds`, when
-    given) holding the first chorus (the lines sung twice); no chorus - from the first sung line, no words - before the
-    first loud part."""
+def drop_at(sid: str) -> float:
+    """Where the song's drop starts, in song seconds, on a beat: the first chorus by the words (the lines sung twice), else
+    the first part the sound calls a drop, else the beat nearest to a third of the song."""
     a = song.analysis(sid)
+    chorus = song.chorus_spans(song.lines(sid))
+    at = chorus[0][0] if chorus else next((x.start for x in a.sections if x.kind == "drop"), None)
+    if at is None:
+        at = a.duration / 3
+    return min(a.beats, key=lambda b: abs(b - at)) if a.beats else float(at)
+
+
+def window(sid: str, length: str, seconds: Optional[float] = None, start: float = 0.0) -> tuple[float, float]:
+    """(start, seconds) of the song the clip takes: the user's own piece, the whole song, a minute (`seconds`, when
+    given) holding the first chorus (the lines sung twice); no chorus - from the first sung line, no words - before the
+    first loud part. «drop» (the beat clip): the drop (drop_at) with one bar more than the build before it and one bar
+    more than the drop after it - the bars the beat renderer cuts."""
+    a = song.analysis(sid)
+    if length == "drop":
+        at = drop_at(sid)
+        t0 = max(0.0, at - 4 * (DROP_BUILD_BARS + 1) * a.beat_s)
+        return round(t0, 3), round(min(4 * (DROP_BUILD_BARS + DROP_BARS + 2) * a.beat_s, a.duration - t0), 3)
     if length == "own":   # clip.fragment snaps it to a bar and moves a piece past the end back
         return round(min(start, a.duration), 3), round(min(seconds or BEST, a.duration), 3)
     want = seconds or BEST
@@ -193,6 +226,9 @@ def _check(req: Autopilot) -> None:
     if why := misfit(what, bool(req.song), bool(req.photo), req.idea):
         raise HTTPException(400, why)
     req.what = what
+    if what == "beat":
+        from . import beat_clip
+        return beat_clip.check(req)
     if req.script not in ("writer", "own"):
         raise HTTPException(400, i18n.L(f"Неизвестный сценарий: {req.script}", f"Unknown script choice: {req.script}"))
     req.frames = req.frames or needs_frame(req.look)   # a look that draws every frame can't go without them
@@ -279,7 +315,7 @@ def song_window(song_id: str, length: str = "whole", seconds: Optional[float] = 
         song.public(song_id)
     except EngineError as e:
         raise HTTPException(404, str(e)) from e
-    if length not in ("whole", "best", "own"):
+    if length not in ("whole", "best", "own", "drop"):
         raise HTTPException(400, i18n.L(f"Неизвестная длина: {length}", f"Unknown length: {length}"))
     a, b = window(song_id, length, seconds, max(0.0, start))
     return {"start": a, "seconds": b}
@@ -383,6 +419,9 @@ def _estimates(req: Autopilot, proj: Optional[dict]) -> tuple[float, dict]:
     """(total, {stage: seconds}) of the stages still to run: rough before the script (a clip: a scene every ~4 s of
     the song; a story: the model's scene length), this machine's own figures after it (the writer's speed, the
     render's estimate with its cache)."""
+    if what_of(req) == "beat":
+        from . import beat_clip
+        return beat_clip.estimates(req, proj)
     clip = is_clip(req)
     secs, each = _length(req)
     own = req.script == "own"
@@ -424,10 +463,19 @@ def route_estimate(req: Autopilot):
     req.what = what_of(req)
     if why := misfit(req.what, bool(req.song), bool(req.photo), req.idea):
         raise HTTPException(400, why)
-    if not req.what.startswith("clip"):
+    if not req.what.startswith("clip") and req.what != "beat":
         req.song = None
     if req.what in ("clip", "story"):
         req.photo = None
+    if req.what == "beat":
+        from . import beat_clip
+        if req.quality not in graphs.QUALITY_MP:
+            raise HTTPException(400, i18n.L("Неизвестное качество", "Unknown quality"))
+        req.video_model = req.video_model or videomodels.default()
+        total, est = _estimates(req, None)
+        return {"what": "beat", "total": round(total), "stages": est, "run": list(beat_clip.STAGES), "scenes": 16, "seconds": round(beat_clip.seconds_of(req), 1),
+                "model": videomodels.card(req.video_model).name, "gpu": ((sysinfo.vram() or {}).get("name") or "").replace("NVIDIA ", "").replace("GeForce ", "")
+                if timings.engine_key() == "local" else timings.engine_key(), "steps": est, "models": {}, "words_done": est.get("words", 0) == 0}
     if req.length not in ("whole", "best", "own") or req.quality not in graphs.QUALITY_MP:
         raise HTTPException(400, i18n.L("Неизвестная длина или качество", "Unknown length or quality"))
     req.video_model = req.video_model or (videomodels.clip_default() if req.song else videomodels.default())
@@ -483,6 +531,7 @@ def _state(pid: str, **kw) -> None:
 
 
 async def run(job: jobs.Job, req: Autopilot, pid: Optional[str] = None) -> dict:
+    from . import beat_clip
     proj = projects.load(pid) if pid else None
     done: list[str] = list(((proj or {}).get("autopilot") or {}).get("done") or [])
     stages = stages_of(req)
@@ -504,7 +553,9 @@ async def run(job: jobs.Job, req: Autopilot, pid: Optional[str] = None) -> dict:
         if pid:
             _state(pid, stage=stage, error=None, stopped=False, finished=False)
         try:
-            if stage == "words":
+            if req.what == "beat":
+                pid = await beat_clip_run(lens, req, pid, stage)
+            elif stage == "words":
                 note = await _words(lens, req)
             elif stage == "write":
                 pid = await (_write(lens, req, pid, note) if is_clip(req) else _write_story(lens, req, pid))
@@ -527,6 +578,10 @@ async def run(job: jobs.Job, req: Autopilot, pid: Optional[str] = None) -> dict:
             if pid:
                 _state(pid, stopped=True)
             raise
+        except beat_clip.Stopped:   # «Остановить после текущей сцены» in a beat clip: the work so far stays
+            if pid:
+                _state(pid, stopped=True)
+            return {"project": pid, "complete": False}
         except Exception as e:  # noqa: BLE001 - the stage named, «Продолжить» goes on from it
             msg = getattr(e, "detail", None) or str(e) or type(e).__name__
             if pid:
@@ -539,6 +594,11 @@ async def run(job: jobs.Job, req: Autopilot, pid: Optional[str] = None) -> dict:
     auto["stage"] = None
     _state(pid, stage=None, finished=True)
     return {"project": pid, "complete": True}
+
+
+async def beat_clip_run(job, req: Autopilot, pid: Optional[str], stage: str) -> Optional[str]:
+    from . import beat_clip
+    return await beat_clip.run_stage(job, req, pid, stage)
 
 
 async def _words(job, req: Autopilot) -> str:

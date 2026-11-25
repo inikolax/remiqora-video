@@ -18,11 +18,11 @@ export default {
     understood: 'Поняли так:', change: 'Не так? Изменить', changeTitle: 'Что снимать из того, что вы дали',
     what: {
       clip: 'Песня → клип', clip_hero: 'Песня + фото → клип с этим героем', story: 'Текст → история',
-      story_hero: 'Фото → герой истории', story_start: 'Фото → первый кадр истории',
+      story_hero: 'Фото → герой истории', story_start: 'Фото → первый кадр истории', beat: 'Песня → бит-клип',
     },
     whatSub: {
       clip: 'сцены по тактам, герой — от сценариста', clip_hero: 'поёт человек с фото', story: 'сценарист делит идею на сцены',
-      story_hero: 'сценарист опишет человека с фото', story_start: 'ролик начнётся с этого снимка',
+      story_hero: 'сценарист опишет человека с фото', story_start: 'ролик начнётся с этого снимка', beat: 'дроп песни в бит: безликий герой, короткие шоты',
     },
     nothing: 'Напишите идею или положите песню, фото или видео.',
     photoIdea: 'Короткая история о человеке с фото',
@@ -129,11 +129,11 @@ export default {
     understood: 'Understood as:', change: 'Not right? Change', changeTitle: 'What to make of what you gave',
     what: {
       clip: 'Song → clip', clip_hero: 'Song + photo → a clip with this hero', story: 'Text → story',
-      story_hero: 'Photo → the hero of a story', story_start: 'Photo → the first frame of a story',
+      story_hero: 'Photo → the hero of a story', story_start: 'Photo → the first frame of a story', beat: 'Song → beat clip',
     },
     whatSub: {
       clip: 'scenes on the bars, the hero by the writer', clip_hero: 'the person in the photo sings', story: 'the writer splits the idea into scenes',
-      story_hero: 'the writer describes the person in the photo', story_start: 'the video starts from this picture',
+      story_hero: 'the writer describes the person in the photo', story_start: 'the video starts from this picture', beat: "the song's drop to the beat: a faceless hero, short shots",
     },
     nothing: 'Write an idea or drop a song, a photo or a video.',
     photoIdea: 'A short story about the person in the photo',

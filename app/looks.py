@@ -513,6 +513,30 @@ def unphoto(text: str, v5: bool = False) -> str:
     return re.sub(r"\s{2,}", " ", out).strip(" ,;")
 
 
+# Clearly photographic wording in a hand-written prompt (a drawn look cannot hold it): the text itself says «photo»
+_PHOTO_CLAIMS = re.compile(r"(?:\s*[,;])?\s*\b(?:(?:extremely |highly |ultra[- ])?photo-?realistic(?: quality)?|photographic(?: quality)?|real photo(?:graph)?|"
+                           r"(?:shallow |deep )?depth of field|bokeh(?: background)?|dslr)\b", re.I)
+
+
+def unphoto_text(text: str) -> str:
+    """unphoto plus the claims a hand-written prompt makes of a photograph (photorealistic, depth of field, bokeh); the
+    composition and camera words stay."""
+    # line by line: the prompt's paragraphs (Scene: / Camera: / Timeline:) stay apart
+    lines = [unphoto(_PHOTO_CLAIMS.sub("", ln), True) for ln in (text or "").split("\n")]
+    return "\n".join(lines).strip()
+
+
+def drawn_of(look_id: Optional[str]) -> bool:
+    """A look that is not live action: animated, drawn or an art look (pixel art, stained glass, neon lines)."""
+    lk = LOOKS.get(look_id or "")
+    return bool(lk) and not lk["live"]
+
+
+def frame_look(look_id: Optional[str]) -> bool:
+    """A look every frame of which is drawn (FRAME_LOOKS)."""
+    return look_id in FRAME_LOOKS
+
+
 def tech(plan: dict) -> str:
     """The technique's phrase after a scene's motion, when it is shot from its picture ("" unless needs_frame)."""
     return look_of(plan)["tech_en"] if needs_frame(plan) else ""
@@ -605,6 +629,37 @@ def clean_look(text: str, look: dict) -> str:
 
 def has_banned(text: str) -> bool:
     return bool(_BANNED.search(text or ""))
+
+
+# The owner's rule (2026-11-06): no drug hints in a clip's titles, HUD text, hashtags and publication text («кислота»,
+# acid, trip...). A separate list from BANNED (that one keeps a hero from looking like a doll). It is for the words the
+# STUDIO writes - a title, a HUD line, the post; the words of the song are sung as they are and never go through it, and
+# a picture's colour («acid-green» in a style line) is not a title.
+DRUG_HINTS = [r"кислот\w*", r"acid\w*", r"trip(?:s|py|ping|ped)?", r"трип\w*", r"lsd", r"лсд", r"molly", r"молли", r"mdma", r"мдма",
+              r"экстази", r"ecstasy", r"extasy", r"эйфори\w*", r"psychedel\w*", r"психодел\w*", r"наркот\w*", r"narcotic\w*",
+              r"drugs?", r"кокаин\w*", r"cocaine", r"героин\w*", r"heroin", r"марихуан\w*", r"marijuana", r"weed", r"травк\w*",
+              r"шишк\w*", r"shrooms?", r"грибочк\w*", r"amphetamine\w*", r"амфетамин\w*", r"meth", r"ketamine", r"кетамин\w*",
+              r"cannabis", r"каннабис\w*", r"hallucinogen\w*", r"галлюциноген\w*", r"overdose", r"передоз\w*", r"stoned", r"high on"]
+_DRUGS = re.compile(r"(?<!\w)(?:" + "|".join(DRUG_HINTS) + r")(?!\w)", re.I)
+
+
+def has_banned_title(text: str) -> bool:
+    """Whether a title / HUD line / hashtag / publication text carries a drug hint (DRUG_HINTS)."""
+    return bool(_DRUGS.search(text or ""))
+
+
+def clean_text(text: str) -> str:
+    """A title / HUD / publication text without the drug hints: the word is cut, the separators around it tidied
+    («ACID // TECHNO» -> «TECHNO», «#acid #techno» -> «#techno»). Not for sung words."""
+    if not text or not _DRUGS.search(text):
+        return text   # nothing to cut: the text is returned as written
+    sep = r"[/|\-\u2013\u2014:,]+"
+    out = re.sub(r"#?" + _DRUGS.pattern, "", text, flags=re.I)
+    out = re.sub(rf"({sep})(?:\s+{sep})+", lambda m: m.group(1), out)   # two separators that met where the word was
+    out = re.sub(rf"^\s*{sep}\s*|\s*{sep}\s*$", "", out)
+    out = re.sub(r"\s+([,.;!?])", lambda m: m.group(1), out)
+    out = re.sub(r"\s{2,}", " ", out)
+    return out.strip()
 
 
 def apply(plan: dict) -> None:

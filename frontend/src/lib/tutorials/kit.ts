@@ -9,7 +9,7 @@ export const GROUP_EN = 'Scenarios'   // tutorials/en: the English twins
 export const step = (title: string, html: string, small = '') =>
   `<li><b>${title}</b>${html.startsWith('<') ? html : `<p>${html}</p>`}${small ? `<small>${small}</small>` : ''}</li>`
 export const steps = (...items: string[]) => `<ol class="flow">${items.join('')}</ol>`
-// a link to a screen of the app («Открыть главную», «Модели и настройки»): its hash route, e.g. '/', '/models', '/lab'
+// a link to a screen of the app («Открыть главную», «Настройки»): its hash route, e.g. '/', '/settings/models', '/lab'
 export const go = (to: string, label: string) => `<a class="tut-go" href="#${to}">${label} →</a>`
 // a link to another help section or scenario
 export const see = (id: string, label: string) => `<a href="#/help/${id}">${label}</a>`

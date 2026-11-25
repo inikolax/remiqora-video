@@ -5,15 +5,18 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Handle, Position } from '@vue-flow/core'
 import Icon from '../Icon.vue'
-import { ENGINE_NAME, GE, ICON, PORT_COLOR, PORT_LABEL, PORT_Y, WHO_COLOR, fileUrl, inputsOf, live, nodeOf, portsOf, refLoraOf, secondsOf, tOf, typeTitle } from '../../lib/graphDoc'
+import { ENGINE_NAME, GE, ICON, PORT_COLOR, PORT_LABEL, PORT_Y, WHO_COLOR, expand, fileUrl, inputsOf, live, nodeOf, portsOf, graphPics, refLoraOf, runLlm, secondsOf, tOf, typeTitle } from '../../lib/graphDoc'
+import { openZoom } from '../../lib/zoom'
 import { outLabel } from '../../lib/project'
 import { KIND_ICON } from '../../lib/consts'
 import { nextStep } from '../../lib/nodeHelp'
 import { dec, mins, mmss } from '../../lib/format'
 import { S } from '../../lib/store'
 import { lookName } from '../../lib/looks'
+import { screenplayStats } from '../../lib/screenplay'
 import { useResize } from './resize'
 import WriterThinking from '../WriterThinking.vue'
+import RoleSelect from './RoleSelect.vue'
 
 const props = defineProps<{ id: string; data: Record<string, any>; selected?: boolean }>()
 const { t: tx } = useI18n()
@@ -33,6 +36,10 @@ const top = (k: number) => `${PORT_Y(k)}px`
 const title = computed(() => props.data.title || typeTitle(t.value))
 const img = computed(() => {
   const s = st.value
+  if (t.value === 'hero' && props.data.actor) {   // an actor's picture: the one the server says it has (face, else look reference, else photo); ?v= changes when it is redrawn
+    const a = s?.actor
+    return a?.image ? `/api/actors/${props.data.actor}/image/${a.image}?v=${a.v || 0}` : null
+  }
   if (t.value === 'photo' || t.value === 'hero') return fileUrl(props.data.file || props.data.photo)
   if (t.value === 'scene' || t.value === 'v2v' || t.value === 'facefix') return s?.state === 'ready' ? fileUrl(s.png) : null
   if (t.value === 'frame' || t.value === 'picture') return s?.state === 'ready' ? fileUrl(s.file) : null
@@ -45,7 +52,7 @@ const status = computed(() => {
   if (r) {
     if (r.status === 'running') {
       const step = j && j.phase === 'sampling' && j.steps ? tx('nodes.card.step', { a: j.step, b: j.steps }) : j?.phase === 'loading' ? tx('nodes.card.loading') : ''
-      return { cls: 'now', text: (t.value === 'writer' || t.value === 'clip_writer' ? tx('nodes.card.writing') : t.value === 'hero' ? tx('nodes.card.describing') : tx('nodes.card.going')) + step }
+      return { cls: 'now', text: (t.value === 'writer' || t.value === 'clip_writer' || t.value === 'pool_writer' || t.value === 'screenplay' ? tx('nodes.card.writing') : t.value === 'hero' ? tx('nodes.card.describing') : tx('nodes.card.going')) + step }
     }
     if (r.status === 'done') return { cls: 'ok', text: r.seconds ? tx('nodes.card.doneS', { s: Math.round(r.seconds) }) : tx('nodes.card.done') }
     if (r.status === 'cached') return { cls: 'ok', text: tx('nodes.card.cached') }
@@ -57,13 +64,13 @@ const status = computed(() => {
   if (!s) return { cls: 'muted', text: '' }
   const make = tx(t.value === 'scene' ? 'nodes.card.toShoot' : t.value === 'picture' ? 'nodes.card.draw' : t.value === 'v2v' || t.value === 'facefix' ? 'nodes.card.rebuild' : 'nodes.card.build')
   switch (s.state) {
-    case 'ready': return { cls: 'ok', text: ['scene', 'v2v', 'facefix', 'sound', 'picture', 'frame', 'join', 'montage', 'music', 'output'].includes(t.value) ? tx('nodes.card.done') : t.value === 'writer' || t.value === 'clip_writer' ? tx('nodes.card.written') : '' }
+    case 'ready': return { cls: 'ok', text: ['scene', 'v2v', 'facefix', 'sound', 'picture', 'frame', 'join', 'montage', 'beat_montage', 'music', 'output'].includes(t.value) ? tx('nodes.card.done') : t.value === 'writer' || t.value === 'clip_writer' || t.value === 'pool_writer' || t.value === 'screenplay' ? tx('nodes.card.written') : '' }
     case 'todo': return { cls: 'todo', text: make }
     case 'wait': return { cls: 'muted', text: t.value === 'scene' ? tx('nodes.card.waitStart') : tx('nodes.card.waitInputs') }
     case 'blocked': return { cls: 'warn', text: tx('nodes.card.inputError') }
     case 'error': return { cls: 'bad', text: s.error || tx('nodes.card.error') }
-    case 'stale': return { cls: 'warn', text: t.value === 'writer' || t.value === 'clip_writer' ? tx('nodes.card.writerStale') : tx('nodes.card.heroStale') }
-    case 'empty': return { cls: 'muted', text: t.value === 'writer' || t.value === 'clip_writer' ? tx('nodes.card.writerEmpty') : tx('nodes.card.heroEmpty') }
+    case 'stale': return { cls: 'warn', text: t.value === 'writer' || t.value === 'clip_writer' || t.value === 'pool_writer' ? tx('nodes.card.writerStale') : tx('nodes.card.heroStale') }
+    case 'empty': return { cls: 'muted', text: t.value === 'writer' || t.value === 'clip_writer' || t.value === 'pool_writer' ? tx('nodes.card.writerEmpty') : tx('nodes.card.heroEmpty') }
     default: return { cls: 'muted', text: '' }
   }
 })
@@ -73,7 +80,7 @@ const body = computed(() => {
   switch (t.value) {
     case 'prompt': case 'idea': return d.text || ''
     case 'picture': return inputsOf(props.id, 'text').length ? '' : d.prompt || ''
-    case 'hero': return d.ru || d.en || ''
+    case 'hero': { const a = d.actor ? st.value?.actor : null; return a ? [a.name, a.look_ru || a.look_en].filter(Boolean).join(String.fromCharCode(10)) : d.ru || d.en || '' }   // an actor's name and look, not the template's old text
     case 'note': return d.text || ''
     case 'track': return d.name || tx('nodes.card.noFile')
     case 'lora': return (d.items || []).map((x: any) => `${x.name || x.id} · ${x.strength}`).join('\n') || tx('nodes.card.empty')
@@ -86,6 +93,12 @@ const body = computed(() => {
     case 'join': return tx('nodes.card.joinN', inputsOf(props.id, 'clips').length)
     case 'montage': { const e = d.edit, n = inputsOf(props.id, 'clips').length; return `${tx('nodes.card.montageN', n)}${d.beats ? tx('nodes.card.beats') : ''}${e ? tx('nodes.card.ownEdit') : tx('nodes.card.asInput')}${st.value?.seconds ? tx('nodes.card.secs', { s: Math.round(st.value.seconds) }) : ''}` }
     case 'song': { const pc = st.value?.piece; return !d.file ? tx('nodes.card.songNone') : `${d.name || ''}${pc ? '\n' + tx('nodes.card.songPiece', { a: mmss(pc[0]), b: mmss(pc[1]), s: Math.round(pc[1] - pc[0]) }) : ''}` }
+    case 'series': return d.look && d.look !== 'auto' ? [d.title, tx('screenplay.series.card', { look: lookName(d.look) })].filter(Boolean).join('\n') : d.title || ''
+    case 'screenplay': {
+      const sp = screenplayStats(String(d.text ?? ''))   // read from the node's current text on every change
+      return sp.shots ? tx('screenplay.play.card', { s: sp.scenes, n: sp.shots }) : tx('screenplay.play.cardNew')
+    }
+    case 'pool_writer': return (d.pool || []).length ? tx('beat.card.pool', { n: d.pool.length }, d.pool.length) : tx('beat.card.poolNew')
     case 'clip_writer': { const p = d.plan; return p ? tx('nodes.card.clipPlan', { title: p.title_ru || tx('nodes.card.storyboard') }, p.scenes.length) : tx('nodes.card.clipNew') }
     case 'writer': { const p = d.plan; return p ? tx('nodes.card.writerPlan', { title: p.title_ru || tx('nodes.card.storyboard') }, p.scenes.length) : tx('nodes.card.writerNew', { s: d.seconds || 15, mood: d.mood || '' }) }
     default: return ''
@@ -126,14 +139,23 @@ const badges = computed(() => {
       <span v-if="t === 'scene' && data.takes?.length" class="seed" :title="tx('nodes.card.seed')">#{{ data.takes[data.take || 0] }}</span></header>
     <div v-if="img || ['scene', 'v2v', 'facefix', 'picture', 'frame'].includes(t)" class="ge-thumb" :class="{ alpha: t === 'v2v' && st?.alpha }">
       <img v-if="img" :src="img" alt="" draggable="false">
+      <button v-if="img" type="button" class="ge-zoom nodrag nopan" :aria-label="tx('zoom.open')" :title="tx('zoom.open')" @click.stop="openZoom(img, title, graphPics())" @dblclick.stop><Icon name="expand" :size="13" /></button>
       <span v-else class="none">{{ tx(t === 'scene' ? 'nodes.card.notShot' : t === 'v2v' || t === 'facefix' ? 'nodes.card.notBuilt' : t === 'picture' ? 'nodes.card.notDrawn' : 'nodes.card.noFrame') }}</span>
     </div>
     <p v-if="body" class="ge-body">{{ body }}</p>
     <p v-for="(l, i) in lines.slice(0, 2)" :key="i" class="ge-line"><b>{{ l.who }}:</b> «{{ l.text }}»</p>
     <p v-if="t === 'scene' && st?.warn" class="ge-warn" :title="st.warn"><Icon name="warn" :size="12" />{{ tx('nodes.card.faceDrift') }}</p>
+    <p v-if="t === 'scene' && st?.frame_look" class="ge-warn" :title="tx('looks.needFrame', { name: lookName(st.frame_look) })"><Icon name="warn" :size="12" />{{ tx('looks.needFrameCard', { name: lookName(st.frame_look) }) }}</p>
     <p v-if="t === 'scene' && st?.checks?.length" class="ge-warn" :title="st.checks.map((x) => tx('nodes.card.checkAt', { name: x.name, at: dec(x.at) })).join('; ')"><Icon name="warn" :size="12" />{{ st.checks[0].name }}{{ st.checks.length > 1 ? tx('nodes.card.andMore', { n: st.checks.length - 1 }) : '' }}</p>
     <div v-if="badges.length" class="ge-badges"><span v-for="b in badges" :key="b">{{ b }}</span></div>
-    <WriterThinking v-if="(t === 'writer' || t === 'clip_writer') && job" class="ge-think" :job="job" :node="id" compact />
+    <RoleSelect v-if="t === 'scene' && data.role" :id="id" compact />
+    <div v-if="t === 'screenplay'" class="ge-acts nodrag nopan">
+      <button type="button" class="btn" :disabled="!!job || !inputsOf(id, 'idea').length" @click.stop="runLlm([id])"><Icon name="spark" :size="13" />{{ tx('screenplay.play.write') }}</button>
+      <button type="button" class="btn" :disabled="!!job || !(data.text || '').trim()" @click.stop="expand(id)"><Icon name="layers" :size="13" />{{ tx('screenplay.play.expand') }}</button></div>
+    <div v-if="t === 'pool_writer'" class="ge-acts nodrag nopan">
+      <button type="button" class="btn" :disabled="!!job || !inputsOf(id, 'song').length" @click.stop="runLlm([id])"><Icon name="spark" :size="13" />{{ tx('nodesPanel.write') }}</button>
+      <button type="button" class="btn" :disabled="!!job || !(data.pool || []).length" @click.stop="expand(id)"><Icon name="layers" :size="13" />{{ tx('nodesPanel.expand') }}</button></div>
+    <WriterThinking v-if="(t === 'writer' || t === 'clip_writer' || t === 'pool_writer' || t === 'screenplay') && job" class="ge-think" :job="job" :node="id" compact />
     <p v-if="need" class="ge-need" :title="need"><Icon name="forward" :size="12" />{{ need }}</p>
     <footer v-if="status.text" :class="status.cls" :title="status.text">{{ status.text }}</footer>
     </div>

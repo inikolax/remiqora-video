@@ -7,8 +7,8 @@ import Icon from '../Icon.vue'
 import HelpQ from '../HelpQ.vue'
 import SceneForm from '../lab/SceneForm.vue'
 import VoiceRecorder from '../VoiceRecorder.vue'
-import { ENGINE_NAME, GE, ICON, MAKES, SCENE_S, WHO_COLOR, addNode, duplicateBranch, expand, feedSeconds, fileUrl, inputsOf, link, live, nodeOf, refLoraOf, removeNodes, rseed,
-  ruTitle, runLlm, runTo, secondsOf, speakersIn, tOf, touch, typeTitle, upload } from '../../lib/graphDoc'
+import { ENGINE_NAME, GE, ICON, MAKES, SCENE_S, WHO_COLOR, addNode, duplicateBranch, expand, feedSeconds, fileUrl, flush, inputsOf, link, live, nodeOf, refLoraOf, removeNodes, rseed,
+  drawFirstFrame, graphPics, ruTitle, runLlm, runTo, secondsOf, speakersIn, tOf, touch, typeTitle, upload } from '../../lib/graphDoc'
 import { S, banner, h3Ready, lorasFor, v2vLoras } from '../../lib/store'
 import { api, post } from '../../lib/api'
 import type { Job } from '../../lib/types'
@@ -17,9 +17,18 @@ import { checkPrompt } from '../../lib/promptChecks'
 import { inLang } from '../../lib/textLang'
 import { GENDERS, HOW_RU, LENGTHS } from '../../lib/consts'
 import HeroKind from '../board/HeroKind.vue'
+import PoolPanel from './PoolPanel.vue'
+import BeatPanel from './BeatPanel.vue'
+import PublishPanel from './PublishPanel.vue'
+import RoleSelect from './RoleSelect.vue'
+import BeatHelp from '../BeatHelp.vue'
+import { HERO_PRESETS, type Named, beatInfo, nameOf as beatName } from '../../lib/beat'
+import ActorPanel from './ActorPanel.vue'
 import { NODE_HELP, nextStep, nodeWhat, whoName } from '../../lib/nodeHelp'
 import { dec, mmss } from '../../lib/format'
-import { L, loadLooks } from '../../lib/looks'
+import { L, loadLooks, lookName, lookOf } from '../../lib/looks'
+import { screenplayStats } from '../../lib/screenplay'
+import { openZoom } from '../../lib/zoom'
 
 const props = defineProps<{ id: string }>()
 const { t: tx } = useI18n()
@@ -29,6 +38,14 @@ const t = computed(() => (n.value ? tOf(n.value) : ''))
 const spec = computed(() => GE.types[t.value])
 const st = computed(() => GE.state?.nodes[props.id])
 const busy = computed(() => !!live())
+// the .srt is made from the saved graph: save first, then let the browser download it
+async function downloadSrt() {
+  await flush()
+  const a = document.createElement('a')
+  a.href = `/api/projects/${GE.id}/nodes/${props.id}/srt`
+  a.download = 'screenplay.srt'
+  document.body.appendChild(a); a.click(); a.remove()
+}
 const set = (k: string, v: unknown) => { d.value[k] = v; touch() }
 // «Стиль проекта» (the bar above the canvas): the writer reads the delivery and the look, not its mood; a scene may
 // have its own look (app/graph.look_text)
@@ -59,38 +76,97 @@ async function translateJob(path: string, body: Record<string, unknown>): Promis
   return job.result as Record<string, any>
 }
 const trBusy = computed(() => !!tr.value && (tr.value.state === 'wait' || tr.value.state === 'queue'))
-// an idea -> a Prompt beside it (the same one again when there is one); the idea's links into scenes and pictures move
-// to the prompt - the model would get the Russian as it is
-async function ideaToPrompt() {
+// What to make from an idea (app/llm/idea.py, POST /api/llm/idea): a video prompt, a picture prompt, a draft script, or the
+// writer's free talk. Prompts come with the idea's links each takes (they move onto the prompt - the model would get the
+// Russian as it is); a script and a talk go to a «Заметка» beside the idea and change no links. Only by the buttons.
+const IDEA_MODES = ['video', 'picture', 'script'] as const
+const ideaFeeds = computed(() => GE.edges.filter((e) => e.source === props.id && ['scene', 'picture'].includes(tOf(nodeOf(e.target)!))).map((e) => tOf(nodeOf(e.target)!)))
+// no mode picked: by the wiring - pictures only -> a picture prompt, scenes only (or nothing) -> a video one, both -> two
+const ideaAuto = computed(() => (ideaFeeds.value.includes('scene') && ideaFeeds.value.includes('picture') ? 'both' : ideaFeeds.value.length && !ideaFeeds.value.includes('scene') ? 'picture' : 'video'))
+const ideaMode = computed(() => (IDEA_MODES as readonly string[]).includes(d.value.mode) ? d.value.mode as string : '')
+const ideaGo = computed(() => ideaMode.value || ideaAuto.value)
+function setIdeaMode(v: string) { if (v) set('mode', v); else { delete d.value.mode; touch() } }
+async function ideaMake(mode: string) {
   const idea = n.value, text = (d.value.text || '').trim()
   if (!idea || !text || trBusy.value) return
-  const into = GE.edges.filter((e) => e.source === idea.id && ['scene', 'picture'].includes(tOf(nodeOf(e.target)!)))
-  const scene = into.map((e) => nodeOf(e.target)!).find((x) => tOf(x) === 'scene')
-  const r = await translateJob('/api/llm/translate', { text, seconds: scene ? secondsOf(scene) : 5, video_model: graphModel.value, frame: !!scene && inputsOf(scene.id, 'start').length > 0,
-    target: !scene && into.length ? pictureTarget(idea.id) : 'video' })
-  if (!r?.en) return
-  // the idea feeds pictures and scenes both: the picture gets a still's text of its own (text_picture)
-  const pic = scene && into.some((e) => tOf(nodeOf(e.target)!) === 'picture') ? await translateJob('/api/llm/translate', { text, seconds: 5, video_model: graphModel.value, target: pictureTarget(idea.id) }) : null
   const data = idea.data as Record<string, any>
-  let p = data.prompt_id ? nodeOf(data.prompt_id) : null
-  if (p && tOf(p) === 'prompt') {
-    const pd = p.data as Record<string, any>
-    if ((pd.text || '').trim() && pd.text !== data.prompt_en && !confirm(tx('nodesPanel.replacePrompt'))) return
-    pd.text = pd.enDone = r.en; pd.ru = pd.ruDone = text
-    if (pic?.en) pd.text_picture = pic.en; else delete pd.text_picture
-  } else {
-    p = addNode('prompt', idea.position.x + 320, idea.position.y, { title: tx('nodes.ideaPrompt', { name: data.title || tx('nodes.title.idea') }), text: r.en, ru: text, enDone: r.en, ruDone: text, ...(pic?.en ? { text_picture: pic.en } : {}) })
-    data.prompt_id = p.id
+  const into = GE.edges.filter((e) => e.source === idea.id && ['scene', 'picture'].includes(tOf(nodeOf(e.target)!)))
+  const targets = into.map((e) => {
+    const x = nodeOf(e.target)!, scene = tOf(x) === 'scene'
+    return { id: e.id, kind: scene ? 'scene' : 'picture', seconds: scene ? secondsOf(x) : 5, frame: scene && inputsOf(x.id, 'start').length > 0,
+      flux: !scene && (x.data as any).model === 'flux2' && inputsOf(x.id, 'ref').length > 0 }
+  })
+  const r = await translateJob('/api/llm/idea', { text, mode, targets, video_model: graphModel.value })
+  if (!r) return
+  const name = data.title || tx('nodes.title.idea')
+  if (r.note) {
+    // a script / a talk: a note beside the idea (the same one again; the user's edits ask first)
+    const key = mode === 'think' ? 'think' : 'script'
+    let nn = data[`note_${key}_id`] ? nodeOf(data[`note_${key}_id`]) : null
+    const body = r.note.title && key === 'script' ? `${r.note.title}
+
+${r.note.text}` : r.note.text
+    if (nn && tOf(nn) === 'note') {
+      const nd = nn.data as Record<string, any>
+      if ((nd.text || '').trim() && nd.text !== data[`note_${key}_text`] && !confirm(tx('nodesPanel.replaceNote'))) return
+      nd.text = body
+    } else {
+      nn = addNode('note', idea.position.x + 320, idea.position.y, { title: tx(key === 'think' ? 'nodes.ideaThink' : 'nodes.ideaScript', { name }), text: body })
+      data[`note_${key}_id`] = nn.id
+    }
+    data[`note_${key}_text`] = body
+    touch()
+    banner(tx(key === 'think' ? 'nodesPanel.thinkReady' : 'nodesPanel.scriptReady'))
+    return
   }
-  data.prompt_en = r.en
-  for (const e of into) link({ source: p.id, sourceHandle: 'text', target: e.target, targetHandle: e.targetHandle })
+  let moved = 0
+  for (const pr of (r.prompts || []) as { form: string; en: string; targets: string[] }[]) {
+    const pic = pr.form !== 'video', key = pic ? 'prompt_pic_id' : 'prompt_id'
+    let p = data[key] ? nodeOf(data[key]) : null
+    if (p && tOf(p) === 'prompt') {
+      const pd = p.data as Record<string, any>
+      if ((pd.text || '').trim() && pd.text !== data[pic ? 'prompt_pic_en' : 'prompt_en'] && !confirm(tx('nodesPanel.replacePrompt'))) continue
+      pd.text = pd.enDone = pr.en; pd.ru = pd.ruDone = text
+      // an older prompt that still feeds a picture keeps its still's text
+      if (!GE.edges.some((x) => x.source === p!.id && tOf(nodeOf(x.target)!) === 'picture')) delete pd.text_picture
+    } else {
+      p = addNode('prompt', idea.position.x + 320, idea.position.y, { title: tx(pic ? 'nodes.ideaPromptPic' : 'nodes.ideaPrompt', { name }), text: pr.en, ru: text, enDone: pr.en, ruDone: text })
+      data[key] = p.id
+    }
+    data[pic ? 'prompt_pic_en' : 'prompt_en'] = pr.en
+    for (const id of pr.targets) {
+      const e = into.find((x) => x.id === id)
+      if (e) { link({ source: p.id, sourceHandle: 'text', target: e.target, targetHandle: e.targetHandle }); moved++ }
+    }
+  }
   touch()
-  banner(tx('nodesPanel.promptReady', { rest: into.length ? tx('nodesPanel.linkedTo', { what: into.length === 1 ? tx('nodesPanel.toScene') : tx('nodesPanel.toScenes') }) : tx('nodesPanel.linkIt') }))
+  banner(tx('nodesPanel.promptReady', { rest: moved ? tx('nodesPanel.linkedTo', { what: moved === 1 ? tx('nodesPanel.toScene') : tx('nodesPanel.toScenes') }) : tx('nodesPanel.linkIt') }))
 }
 // what a hero is: age and gender are a person's only; a look written for another kind is the user's to redo («В английский»)
 function setKind(k: string) {
   set('kind', k === 'person' ? '' : k)
   if (k !== 'person') { set('age', ''); set('gender', '') }
+  if (k === 'faceless') applyHero()
+}
+// «Без лица» (a beat clip's hero): one of the five presets; the server writes the look from it (PUT .../hero-preset -> {data})
+const presets = ref<Named[]>([])
+const songId = computed(() => { const s = GE.nodes.find((x) => tOf(x) === 'song' && (x.data as any).song); return s ? (s.data as any).song as string : '' })
+watch(() => [d.value.kind === 'faceless', songId.value], async ([on, sid]) => {
+  if (!on || !sid) return
+  try { presets.value = (await beatInfo(sid as string)).presets } catch { /* the page's own names stay */ }
+}, { immediate: true })
+const presetList = computed<Named[]>(() => (presets.value.length ? presets.value : HERO_PRESETS.map((id) => ({ id, ru: tx(`beat.hero.${id}`), en: tx(`beat.hero.${id}`) }))))
+// a preset, a preset with the user's details (`desc`), or «Свой герой» (`own`: the words alone; `face_hidden` off lets a face show)
+async function applyHero(patch: { preset?: string; own?: boolean; face_hidden?: boolean } = {}) {
+  const own = patch.own ?? !!d.value.own
+  try {
+    await flush()
+    const r = await api<{ data: Record<string, any> }>(`/api/projects/${GE.id}/nodes/${props.id}/hero-preset`, { method: 'PUT',
+      body: { preset: own ? '' : patch.preset ?? (d.value.preset || HERO_PRESETS[0]), own, text: d.value.desc || '', face_hidden: patch.face_hidden ?? d.value.face_hidden !== false } })
+    for (const k of ['own', 'desc', 'face_hidden', 'head_en']) if (!(k in r.data)) delete d.value[k]
+    Object.assign(d.value, r.data, { kind: 'faceless' })
+    touch(50)
+  } catch (e) { banner((e as Error).message) }
 }
 // a hero's Russian look -> the English look and outfit
 async function heroToEnglish() {
@@ -135,10 +211,21 @@ const issues = computed(() => (t.value === 'prompt' && d.value.text && !feedsPic
 // spoken lines (as on the storyboard): who - how the prompt names them; the server weaves them into the timeline and
 // the audio of every scene the prompt feeds (2 words a second fit)
 const speakers = computed(() => speakersIn(d.value.text || ''))
-const lineList = computed(() => (d.value.lines || []) as { who: string; text: string; how: string }[])
+const lineList = computed(() => (d.value.lines || []) as { who: string; text: string; how: string; audio?: string }[])
 const lineWords = computed(() => lineList.value.reduce((s, l) => s + (l.text || '').trim().split(/\s+/).filter(Boolean).length, 0))
 function addLine() { set('lines', [...lineList.value, { who: speakers.value[lineList.value.length % Math.max(1, speakers.value.length)] || 'The woman', text: '', how: '' }]) }
 function setLine(i: number, k: string, v: string) { const ls = lineList.value.map((l) => ({ ...l })); (ls[i] as any)[k] = v; set('lines', ls) }
+// a line's own sound (an uploaded or recorded file of the project): a scene with only this line is drawn under it
+async function putLineSound(i: number, f: File) {
+  try { const r = await upload(f, 'audio'); setLine(i, 'audio', r.file) } catch (e) { banner((e as Error).message) }
+}
+async function pickLineSound(i: number, ev: Event) {
+  const el = ev.target as HTMLInputElement
+  const f = el.files?.[0]
+  el.value = ''
+  if (f) await putLineSound(i, f)
+}
+function dropLineSound(i: number) { const ls = lineList.value.map((l) => ({ ...l })); delete ls[i].audio; set('lines', ls) }
 function dropLine(i: number) { const ls = [...lineList.value]; ls.splice(i, 1); set('lines', ls) }
 
 // a scene's length
@@ -150,6 +237,12 @@ const maxSecs = computed(() => Math.min(SCENE_S[1], vm.value?.max_seconds || SCE
 // a scene's takes: the chosen one goes on; «Ещё дубль» shoots one more with another seed
 const takes = computed(() => (st.value?.takes?.length ? st.value.takes : (d.value.takes || []).map((s: number) => ({ seed: s, key: '', cached: false, png: null }))) as any[])
 const takeImg = (x: any) => fileUrl(x.png)
+// a look drawn by every frame (clay, oil, watercolour…) holds only from a first frame drawn in it (a test 2026-11-08: the words alone gave a
+// photo): choosing one on a scene without «старт» adds that «Картинка» at once
+function setSceneLook(v: string | undefined) {
+  set('look', v)
+  if (v && lookOf(v)?.needs_frame && !inputsOf(props.id, 'start').length) drawFirstFrame(props.id, v)
+}
 function pickTake(i: number) { d.value.take = i; touch(100) }
 function moreTake() { d.value.takes = [...(d.value.takes || []), rseed()]; d.value.take = d.value.takes.length - 1; touch(50); runTo([props.id]) }
 function dropTake(i: number) {
@@ -226,6 +319,8 @@ function addKrea(e: Event) {
 }
 // a LoRA's trigger words into the picture's own prompt
 const addTrigger = (w: string) => set('prompt', `${(d.value.prompt || '').trim()}${(d.value.prompt || '').trim() ? ', ' : ''}${w}`)
+// the trigger of a LoRA from the common library (FLUX.2, the video models): a `<name>.json` with trainedWords beside the file
+const triggerOf = (id: string) => S.loras.find((l) => l.id === id)?.trigger || ''
 
 // a join's order
 const order = computed(() => {
@@ -302,7 +397,7 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
 <template>
   <div v-if="n" class="ni">
     <div class="ni-head"><span class="ni-type" :style="{ color: WHO_COLOR[spec?.who || 'none'] }"><Icon :name="ICON[t] || 'layers'" />{{ typeTitle(t) }}</span>
-      <span class="muted" style="font-size:12px">{{ sref?.v2v ? tx('nodesPanel.shootsByLora', { e: ENGINE_NAME[sref.v2v.engine] }) : whoName(spec?.who || '') }}</span><HelpQ id="graph-nodes" :term="ruTitle(t)" /></div>
+      <span class="muted" style="font-size:12px">{{ sref?.v2v ? tx('nodesPanel.shootsByLora', { e: ENGINE_NAME[sref.v2v.engine] }) : whoName(spec?.who || '') }}</span><HelpQ :id="t === 'pool_writer' || t === 'beat_montage' ? 'beat' : 'graph-nodes'" :term="t === 'pool_writer' ? 'Пул и роли' : t === 'beat_montage' ? 'Панель Бит-монтажа' : ruTitle(t)" /></div>
     <p v-if="help" class="ni-what">{{ sref?.v2v ? tx('nodesPanel.refScene') : t === 'prompt' && feedsPicture ? tx('nodes.what.promptPicture') : nodeWhat(t) }}<small v-if="help.ports">{{ t === 'prompt' && feedsPicture ? tx('nodes.ports.promptPicture') : help.ports }}</small></p>
     <div v-if="next" class="ni-next" :class="{ need: next.setup }"><b>{{ tx('nodesPanel.next') }}</b><span>{{ next.text }}</span></div>
     <input v-if="t !== 'note'" class="field-in" :value="d.title || ''" :placeholder="typeTitle(t)" :aria-label="tx('nodesPanel.nodeName')" @input="set('title', ($event.target as HTMLInputElement).value)">
@@ -330,17 +425,33 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
             <select class="line-how" :value="l.how" :aria-label="tx('nodesPanel.how')" @change="setLine(i, 'how', ($event.target as HTMLSelectElement).value)"><option v-for="[k, v] in HOW_RU" :key="k" :value="k">{{ v }}</option></select>
             <button type="button" class="ghost" :aria-label="tx('nodesPanel.dropLine')" @click="dropLine(i)"><Icon name="close" /></button></div>
           <textarea class="field-in line-text" rows="2" :value="l.text" :placeholder="tx('nodesPanel.says')" :aria-label="tx('nodesPanel.lineN', { n: i + 1 })" @change="setLine(i, 'text', ($event.target as HTMLTextAreaElement).value)" />
+          <audio v-if="l.audio" :src="fileUrl(l.audio)!" controls style="width:100%;height:32px" />
+          <div class="ni-row"><label class="btn" :title="tx('nodesPanel.ownSoundTitle')"><Icon name="music" />{{ tx('nodesPanel.ownSound') }}<input type="file" accept="audio/*" hidden @change="pickLineSound(i, $event)"></label>
+            <VoiceRecorder @done="putLineSound(i, $event)" />
+            <button v-if="l.audio" type="button" class="ghost" :aria-label="tx('nodesPanel.dropOwnSound')" :title="tx('nodesPanel.dropOwnSound')" @click="dropLineSound(i)"><Icon name="close" /></button></div>
         </div>
         <datalist id="g-speakers"><option v-for="x in [...speakers, 'The woman', 'The man'].filter((v, k, a) => a.indexOf(v) === k)" :key="x" :value="x" /></datalist>
         <div class="ni-row"><button type="button" class="btn" @click="addLine"><Icon name="plus" />{{ tx('nodesPanel.line') }}</button>
           <button type="button" class="btn" :disabled="busy || !d.text" :title="tx('nodesPanel.inventTitle')" @click="runLlm([id])"><Icon name="spark" />{{ tx('nodesPanel.invent') }}</button></div>
         <p class="muted small">{{ tx('nodesPanel.linesHint') }}</p>
+        <p v-if="lineList.some((l) => l.audio)" class="muted small">{{ tx('nodesPanel.ownSoundHint') }}</p>
       </div>
     </template>
     <template v-else-if="t === 'idea'">
       <textarea class="field-in" rows="6" :value="d.text || ''" :placeholder="tx('nodesPanel.ideaPh')" @input="set('text', ($event.target as HTMLTextAreaElement).value)" />
-      <button type="button" class="btn" :disabled="!(d.text || '').trim() || trBusy" :title="tx('nodesPanel.toPromptTitle')"
-        @click="ideaToPrompt"><Icon name="spark" />{{ tx('nodesPanel.toPrompt') }}</button>
+      <div class="ni-row idea-make" style="flex-wrap:wrap">
+        <span class="lbl">{{ tx('nodesPanel.ideaMake') }} <HelpQ id="graph-nodes" term="Идея" :title="tx('nodesPanel.ideaMake')" :text="tx('nodesPanel.ideaModesHelp')" /></span>
+      </div>
+      <div class="ni-row idea-make" style="flex-wrap:wrap">
+        <select class="field-in idea-mode" :value="ideaMode" :aria-label="tx('nodesPanel.ideaMake')" @change="setIdeaMode(($event.target as HTMLSelectElement).value)">
+          <option value="">{{ tx('nodesPanel.modeAuto', { m: tx(`nodesPanel.mode.${ideaAuto}`) }) }}</option>
+          <option v-for="m in IDEA_MODES" :key="m" :value="m">{{ tx(`nodesPanel.mode.${m}`) }}</option>
+        </select>
+        <button type="button" class="btn" :disabled="!(d.text || '').trim() || trBusy" :title="tx(`nodesPanel.modeTitle.${ideaGo}`)"
+          @click="ideaMake(ideaMode || 'auto')"><Icon name="spark" />{{ tx(`nodesPanel.go.${ideaGo}`) }}</button>
+        <button type="button" class="btn" :disabled="!(d.text || '').trim() || trBusy" :title="tx('nodesPanel.askWriterTitle')"
+          @click="ideaMake('think')"><Icon name="quill" />{{ tx('nodesPanel.askWriter') }}</button>
+      </div>
       <span v-if="tr" class="muted small" :class="{ warn: tr.state === 'error' }">{{ tr.state === 'queue' ? tx('nodesPanel.queue') : tr.state === 'wait' ? tx('nodesPanel.translating', { s: tr.secs || 0 })
         : tr.state === 'error' ? tr.text : tx('nodesPanel.doneIn', { s: tr.secs }) }}</span>
       <p class="muted small">{{ tx('nodesPanel.ideaHint') }}</p>
@@ -349,15 +460,24 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
 
     <!-- photo / hero / track -->
     <template v-else-if="t === 'photo'">
-      <img v-if="d.file" class="ni-img" :src="fileUrl(d.file)!" alt="">
+      <img v-if="d.file" class="ni-img zoomable" :src="fileUrl(d.file)!" alt="" :title="tx('zoom.open')" @click="openZoom(fileUrl(d.file)!, d.title || typeTitle(t), graphPics())">
       <label class="btn"><Icon name="image" />{{ d.file ? tx('nodesPanel.otherPhoto') : tx('nodesPanel.loadPhoto') }}<input type="file" accept="image/*" hidden @change="pick('image', 'file', $event)"></label>
       <p class="muted small">{{ tx('nodesPanel.photoHint') }}</p>
     </template>
     <template v-else-if="t === 'hero'">
-      <img v-if="d.photo" class="ni-img" :src="fileUrl(d.photo)!" alt="">
+      <ActorPanel :data="d" :node-id="id" />
+      <img v-if="d.photo" class="ni-img zoomable" :src="fileUrl(d.photo)!" alt="" :title="tx('zoom.open')" @click="openZoom(fileUrl(d.photo)!, d.title || typeTitle(t), graphPics())">
       <label class="btn"><Icon name="image" />{{ d.photo ? tx('nodesPanel.otherPhoto') : tx('nodesPanel.heroPhoto') }}<input type="file" accept="image/*" hidden @change="pick('image', 'photo', $event)"></label>
       <button type="button" class="btn" :disabled="!d.photo || busy" @click="runLlm([id])"><Icon name="spark" />{{ tx('nodesPanel.describe') }}</button>
-      <HeroKind :model-value="d.kind || 'person'" @update:model-value="setKind($event)" />
+      <HeroKind faceless :model-value="d.kind || 'person'" @update:model-value="setKind($event)" />
+      <div v-if="d.kind === 'faceless'" class="stack"><span class="lbl">{{ tx('beat.hero.lbl') }} <BeatHelp k="heroPreset" /></span>
+        <div class="chips" role="radiogroup" :aria-label="tx('beat.hero.lbl')"><button v-for="p in presetList" :key="p.id" type="button" role="radio" class="chip" :class="{ on: !d.own && d.preset === p.id }" :aria-checked="!d.own && d.preset === p.id" @click="applyHero({ preset: p.id, own: false })">{{ beatName(p) }}</button><button type="button" role="radio" class="chip" :class="{ on: !!d.own }" :aria-checked="!!d.own" @click="applyHero({ own: true })">{{ tx('beat.hero.own') }}</button></div>
+        <p class="muted small">{{ tx('beat.hero.presetHint') }}</p>
+        <label class="stack"><span class="lbl">{{ tx('beat.hero.descLbl') }} <BeatHelp k="heroText" /></span>
+          <textarea class="field-in" rows="2" maxlength="600" :value="d.desc || ''" :placeholder="tx('beat.hero.descPh')" @input="set('desc', ($event.target as HTMLTextAreaElement).value)" /></label>
+        <p class="muted small">{{ tx('beat.hero.ownHint') }}</p>
+        <label v-if="d.own" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" :checked="d.face_hidden !== false" @change="applyHero({ face_hidden: ($event.target as HTMLInputElement).checked })">
+          <span>{{ tx('beat.hero.faceHidden') }}</span> <BeatHelp k="faceHidden" /></label></div>
       <div v-if="(d.kind || 'person') === 'person'" class="ni-row"><select class="field-in" :value="d.gender || ''" :aria-label="tx('nodesPanel.gender')" @change="set('gender', ($event.target as HTMLSelectElement).value)"><option value="">{{ tx('nodesPanel.genderPh') }}</option><option v-for="g in GENDERS" :key="g[0]" :value="g[0]">{{ g[1] }}</option></select>
         <input class="field-in" type="number" min="21" max="90" :value="d.age || ''" :placeholder="tx('nodesPanel.agePh')" :aria-label="tx('nodesPanel.age')" @input="set('age', +($event.target as HTMLInputElement).value || '')"></div>
       <label class="stack"><span class="lbl">{{ tx('nodesPanel.inRu') }} <small>{{ tx('nodesPanel.inRuSub') }}</small></span><textarea class="field-in" rows="3" :value="d.ru || ''" @input="set('ru', ($event.target as HTMLTextAreaElement).value)" /></label>
@@ -385,7 +505,7 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
 
     <!-- picture -->
     <template v-else-if="t === 'picture'">
-      <img v-if="ready && st?.file" class="ni-img" :src="fileUrl(st.file)!" alt="">
+      <img v-if="ready && st?.file" class="ni-img zoomable" :src="fileUrl(st.file)!" alt="" :title="tx('zoom.open')" @click="openZoom(fileUrl(st.file)!, d.title || typeTitle(t), graphPics())">
       <label class="stack"><span class="lbl">{{ tx('nodesPanel.pictureModel') }}</span>
         <select class="field-in" :value="d.model || 'krea2'" @change="setPictureModel(($event.target as HTMLSelectElement).value)">
           <option value="krea2">{{ tx('nodesPanel.pictureKrea') }}</option><option value="flux2">{{ tx('nodesPanel.pictureFlux') }}</option></select></label>
@@ -407,35 +527,50 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
       </template>
       <template v-else>
       <span class="lbl">{{ tx('nodesPanel.fluxLora') }} <small>{{ tx('nodesPanel.fluxLoraSub') }}</small></span>
-      <div v-for="u in fluxUsed" :key="u.id" class="ni-row"><span class="grow" :title="u.name">{{ u.name || u.id }}</span>
-        <input class="field-in" type="number" step="0.05" min="-5" max="5" style="width:84px" :value="u.strength" :aria-label="tx('nodesPanel.strength')" @input="u.strength = +($event.target as HTMLInputElement).value; touch()">
-        <button type="button" class="ghost" :aria-label="tx('nodesPanel.remove')" @click="set('loras', d.loras.filter((x: any) => x.id !== u.id))"><Icon name="close" /></button></div>
+      <div v-for="u in fluxUsed" :key="u.id" class="stack" style="gap:2px">
+        <div class="ni-row"><span class="grow" :title="u.name">{{ u.name || u.id }}</span>
+          <input class="field-in" type="number" step="0.05" min="-5" max="5" style="width:84px" :value="u.strength" :aria-label="tx('nodesPanel.strength')" @input="u.strength = +($event.target as HTMLInputElement).value; touch()">
+          <button type="button" class="ghost" :aria-label="tx('nodesPanel.remove')" @click="set('loras', d.loras.filter((x: any) => x.id !== u.id))"><Icon name="close" /></button></div>
+        <span v-if="triggerOf(u.id)" class="muted small">{{ tx('nodesPanel.trigger', { w: triggerOf(u.id) }) }}
+          <button v-if="!inputsOf(id, 'text').length" type="button" class="link-btn" @click="addTrigger(triggerOf(u.id))">{{ tx('nodesPanel.toPromptBtn') }}</button></span>
+        <span v-if="lorasFor('flux2').find((l) => l.id === u.id)?.verdict === 'warn'" class="warn-line small"><Icon name="warn" :size="12" />{{ lorasFor('flux2').find((l) => l.id === u.id)!.note }}</span></div>
       <select class="field-in" @change="addFlux"><option value="">{{ tx('nodesPanel.addLora') }}</option><option v-for="l in fluxRest" :key="l.id" :value="l.id">{{ l.name }}{{ l.verdict === 'warn' ? ' (?)' : '' }}</option></select>
       </template>
     </template>
 
     <!-- scene -->
     <template v-else-if="t === 'scene'">
+      <div v-if="d.role" class="stack"><span class="lbl">{{ tx('beat.role.lbl') }} <BeatHelp k="role" /></span><RoleSelect :id="id" />
+        <p class="muted small">{{ tx('beat.role.hint') }}</p></div>
       <video v-if="ready && st?.file" class="ni-img" :src="fileUrl(st.file)!" :poster="fileUrl(st.png) || undefined" controls playsinline />
       <span class="lbl">{{ tx('nodesPanel.takes') }} <small>{{ tx('nodesPanel.takesSub') }}</small></span>
       <div class="takes">
         <button v-for="(x, i) in takes" :key="x.seed" type="button" class="take" :class="{ on: i === (d.take || 0) }" :title="tx('nodesPanel.seedN', { n: x.seed })" @click="pickTake(i)">
-          <img v-if="x.cached && x.png" :src="takeImg(x)!" alt=""><span v-else>{{ x.cached ? tx('nodesPanel.shot') : tx('nodesPanel.notShot') }}</span><b>{{ i + 1 }}</b>
+          <img v-if="x.cached && x.png" :src="takeImg(x)!" alt="" @dblclick.stop="openZoom(takeImg(x)!, tx('nodesPanel.seedN', { n: x.seed }), takes.filter((y: any) => y.cached && y.png).map((y: any) => ({ src: takeImg(y)!, label: tx('nodesPanel.seedN', { n: y.seed }) })))"><span v-else>{{ x.cached ? tx('nodesPanel.shot') : tx('nodesPanel.notShot') }}</span><b>{{ i + 1 }}</b>
           <i v-if="takes.length > 1" role="button" :aria-label="tx('nodesPanel.dropTake')" @click.stop="dropTake(i)">×</i></button>
       </div>
       <button type="button" class="btn" :disabled="busy" @click="moreTake"><Icon name="retake" />{{ tx('nodesPanel.moreTake') }}</button>
       <label class="stack"><span class="lbl">{{ tx('looks.sceneLook') }} <HelpQ id="idea" term="Вид" /></span>
-        <select class="field-in" :value="d.look || ''" :title="tx('looks.sceneLookHint')" @change="set('look', ($event.target as HTMLSelectElement).value || undefined)">
+        <select class="field-in" :value="d.look || ''" :title="tx('looks.sceneLookHint')" @change="setSceneLook(($event.target as HTMLSelectElement).value || undefined)">
           <option value="">{{ tx('looks.asProject') }}</option>
           <optgroup v-for="g in L.groups.filter((x) => x.id !== 'mine')" :key="g.id" :label="g.name">
             <option v-for="x in L.looks.filter((y) => y.group === g.id)" :key="x.id" :value="x.id">{{ x.name }}</option></optgroup>
         </select></label>
+      <div v-if="st?.frame_look" class="warn-line">
+        <Icon name="warn" :size="14" /><span>{{ tx('looks.needFrame', { name: lookName(st.frame_look) }) }}</span></div>
+      <button v-if="st?.frame_look" type="button" class="btn" @click="drawFirstFrame(id, st.frame_look)">{{ tx('looks.drawFrame') }}</button>
       <label class="stack"><span class="lbl">{{ tx('nodesPanel.sceneModel') }}</span>
         <select class="field-in" :value="d.model || ''" :title="tx('nodesPanel.sceneModelHint')" @change="set('model', ($event.target as HTMLSelectElement).value || undefined)">
           <option value="">{{ tx('nodesPanel.sceneModelGraph', { m: vm?.name || graphModel }) }}</option>
           <option v-for="m in sceneModels" :key="m.id" :value="m.id" :disabled="!!m.missing?.length && m.id !== d.model">{{ m.name }}</option>
         </select></label>
+      <template v-if="inputsOf(id, 'sound').length">
+        <label class="stack"><span class="lbl">{{ tx('nodesPanel.soundFrom') }}</span>
+          <input class="field-in" type="number" min="0" step="0.1" :value="d.sound_from || ''" placeholder="0" :title="tx('nodesPanel.soundFromTitle')" @input="set('sound_from', +($event.target as HTMLInputElement).value || undefined)"></label>
+        <p class="muted small">{{ tx('nodesPanel.sceneSoundHint') }}</p>
+      </template>
       <p v-if="d.cut" class="muted small">{{ tx('nodesPanel.bars') }}: {{ tx('nodesPanel.barsVal', { a: dec(Number(d.cut.start).toFixed(2)), b: dec(Number(d.cut.end).toFixed(2)), s: dec(Number(d.seconds).toFixed(2)) }) }}{{ inputsOf(id, 'voice').length ? ' · ' + (d.cut.voice === false ? tx('nodesPanel.barsNoVoice') : tx('nodesPanel.barsVoice')) : '' }}</p>
+      <p v-if="ready && st?.lips" class="muted small" :class="{ warn: st.lips.mute }" :title="tx('nodesPanel.lipsTitle')">{{ st.lips.mute ? tx('nodesPanel.lipsMute') : tx('nodesPanel.lipsIn', { v: st.lips.voiced ?? '–', s: st.lips.silent ?? '–' }) }}</p>
       <div v-if="ready && st?.checks?.length" class="warn-line" :title="tx('nodesPanel.checksTitle')">
         <Icon name="warn" :size="14" /><span>{{ tx('nodesPanel.inClip', { list: st.checks.map((x) => tx('nodesPanel.checkAt', { name: x.name, at: dec(x.at.toFixed(1)) })).join('; ') }) }}</span></div>
       <template v-if="ready && st?.alpha">
@@ -545,7 +680,7 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
 
     <!-- frame -->
     <template v-else-if="t === 'frame'">
-      <img v-if="ready && st?.file" class="ni-img" :src="fileUrl(st.file)!" alt="">
+      <img v-if="ready && st?.file" class="ni-img zoomable" :src="fileUrl(st.file)!" alt="" :title="tx('zoom.open')" @click="openZoom(fileUrl(st.file)!, d.title || typeTitle(t), graphPics())">
       <label class="check-row"><input type="radio" :checked="frameAt === null" @change="set('at', 'last')">{{ tx('nodesPanel.lastSceneFrame') }}</label>
       <label class="check-row"><input type="radio" :checked="frameAt !== null" @change="set('at', 2.5)">{{ tx('nodesPanel.frameMoment') }}</label>
       <div v-if="frameAt !== null" class="ni-row"><input type="range" min="0" :max="clipSecs - 0.1" step="0.1" :value="frameAt" @input="set('at', +($event.target as HTMLInputElement).value)"><b>{{ tx('nodesPanel.secs', { s: dec(frameAt) }) }}</b></div>
@@ -554,10 +689,13 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
 
     <!-- lora -->
     <template v-else-if="t === 'lora'">
-      <div v-for="(u, i) in d.items || []" :key="u.id" class="ni-row"><span class="grow" :class="{ muted: foreignLora(u.id) }"
-          :title="foreignLora(u.id) ? tx('nodesPanel.foreignLora', { m: vm?.name || tx('nodesPanel.graphModel') }) : u.name">{{ u.name || u.id }}<small v-if="isRef(u.id)" class="muted">{{ tx('nodesPanel.byRefMark') }}</small></span>
-        <input class="field-in" type="number" step="0.05" min="-2" max="2" style="width:84px" :value="u.strength" :aria-label="tx('nodesPanel.strength')" @input="u.strength = +($event.target as HTMLInputElement).value; touch()">
-        <button type="button" class="ghost" :aria-label="tx('nodesPanel.remove')" @click="d.items.splice(i, 1); touch()"><Icon name="close" /></button></div>
+      <div v-for="(u, i) in d.items || []" :key="u.id" class="stack" style="gap:2px">
+        <div class="ni-row"><span class="grow" :class="{ muted: foreignLora(u.id) }"
+            :title="foreignLora(u.id) ? tx('nodesPanel.foreignLora', { m: vm?.name || tx('nodesPanel.graphModel') }) : u.name">{{ u.name || u.id }}<small v-if="isRef(u.id)" class="muted">{{ tx('nodesPanel.byRefMark') }}</small></span>
+          <input class="field-in" type="number" step="0.05" min="-2" max="2" style="width:84px" :value="u.strength" :aria-label="tx('nodesPanel.strength')" @input="u.strength = +($event.target as HTMLInputElement).value; touch()">
+          <button type="button" class="ghost" :aria-label="tx('nodesPanel.remove')" @click="d.items.splice(i, 1); touch()"><Icon name="close" /></button></div>
+        <!-- the trigger words of a video LoRA: shown here, written into the scene's text by hand (the LoRA node has no prompt of its own) -->
+        <span v-if="triggerOf(u.id)" class="muted small" :title="tx('nodesPanel.triggerWhere')">{{ tx('nodesPanel.trigger', { w: triggerOf(u.id) }) }}</span></div>
       <select class="field-in" @change="addLora"><option value="">{{ tx('nodesPanel.addLora') }}</option>
         <optgroup :label="tx('nodesPanel.regular', { m: vm?.name || 'H3' })"><option v-for="l in loraRest" :key="l.id" :value="l.id">{{ l.name }}</option></optgroup>
         <optgroup :label="tx('nodesPanel.refGroup')"><option v-for="l in refRest" :key="l.id" :value="l.id">{{ l.v2v?.reads === 'voice' ? tx('nodesPanel.voiceKind') : tx('nodesPanel.clipKind') }} · {{ ENGINE_NAME[l.model] }} · {{ l.folder && l.name.startsWith('lora_weights') ? `${l.folder} · ${l.name}` : l.name }}</option></optgroup></select>
@@ -588,6 +726,12 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
         <dt>{{ tx('nodesPanel.length') }}</dt><dd>{{ st?.seconds ? mmss(st.seconds) : '—' }}</dd></dl>
     </template>
 
+    <!-- the beat montage: preset, sliders by group, palette, texts, captions, preview (BeatPanel.vue) -->
+    <BeatPanel v-else-if="t === 'beat_montage'" :id="id" />
+
+    <!-- the pool writer: the beat clip's shots (PoolPanel.vue) -->
+    <PoolPanel v-else-if="t === 'pool_writer'" :id="id" />
+
     <!-- music -->
     <template v-else-if="t === 'music'">
       <label v-for="[k, max, step] in ([['volume', 1.5, 0.05], ['scene_volume', 1, 0.05], ['offset', 120, 0.5], ['fade_in', 5, 0.5], ['fade_out', 10, 0.5]] as [string, number, number][])" :key="k" class="stack">
@@ -603,6 +747,7 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
       <label class="check-row"><input type="checkbox" :checked="out.hdr" :disabled="out.size === 'off'" @change="setOut('hdr', ($event.target as HTMLInputElement).checked)">HDR10</label>
       <label class="check-row"><input type="checkbox" :checked="out.fps48" @change="setOut('fps48', ($event.target as HTMLInputElement).checked)">{{ tx('nodesPanel.fps48') }}</label>
       <span v-if="st?.seconds" class="muted small">{{ mmss(st.seconds) }}</span>
+      <PublishPanel v-if="GE.nodes.some((x) => tOf(x) === 'beat_montage')" :id="id" />
     </template>
 
     <!-- writer -->
@@ -623,6 +768,36 @@ const shotName = (s: any) => (s.shot === 'sing' ? tx('nodesPanel.clipw.sing') : 
       <div v-if="d.plan" class="plan-list"><span class="lbl">{{ d.plan.title_ru }}</span>
         <p v-for="s in d.plan.scenes" :key="s.index"><b>{{ s.index + 1 }}</b> {{ s.ru }}</p></div>
       <p class="muted small">{{ tx('nodesPanel.writerHint') }}</p>
+    </template>
+
+    <!-- series: the bible of a mini-series -->
+    <template v-else-if="t === 'series'">
+      <label class="stack"><span class="lbl">{{ tx('screenplay.series.title') }}</span><input class="field-in" :value="d.title || ''" :placeholder="tx('screenplay.series.titlePh')" @input="set('title', ($event.target as HTMLInputElement).value)"></label>
+      <label class="stack"><span class="lbl">{{ tx('screenplay.series.look') }}</span>
+        <select class="field-in" :value="d.look || ''" @change="set('look', ($event.target as HTMLSelectElement).value || undefined)">
+          <option value="">{{ tx('screenplay.series.lookNone') }}</option>
+          <option v-for="x in L.looks.filter((l) => l.id !== 'auto')" :key="x.id" :value="x.id">{{ x.name }}</option></select></label>
+      <label class="stack"><span class="lbl">{{ tx('screenplay.series.style') }}</span><input class="field-in" :value="d.style || ''" :placeholder="tx('screenplay.series.stylePh')" @input="set('style', ($event.target as HTMLInputElement).value)"></label>
+      <label class="stack"><span class="lbl">{{ tx('screenplay.series.world') }}</span><textarea class="field-in" rows="2" :value="d.world || ''" :placeholder="tx('screenplay.series.worldPh')" @input="set('world', ($event.target as HTMLTextAreaElement).value)" /></label>
+      <label class="stack"><span class="lbl">{{ tx('screenplay.series.characters') }}</span><textarea class="field-in" rows="3" :value="d.characters || ''" :placeholder="tx('screenplay.series.charactersPh')" @input="set('characters', ($event.target as HTMLTextAreaElement).value)" /></label>
+      <label class="stack"><span class="lbl">{{ tx('screenplay.series.recap') }}</span><textarea class="field-in" rows="4" :value="d.recap || ''" :placeholder="tx('screenplay.series.recapPh')" @input="set('recap', ($event.target as HTMLTextAreaElement).value)" /></label>
+      <p class="muted small">{{ tx('screenplay.series.hint') }}</p>
+    </template>
+
+    <!-- screenplay: «ИМЯ (как): реплика» -> a shot per line -->
+    <template v-else-if="t === 'screenplay'">
+      <label class="stack"><span class="lbl">{{ tx('screenplay.play.seconds') }}</span><select class="field-in" :value="d.seconds || 30" @change="set('seconds', +($event.target as HTMLSelectElement).value)">
+        <option v-for="s in [15, 30, 45, 60, 90]" :key="s" :value="s">{{ s }}</option></select></label>
+      <label class="stack"><span class="lbl">{{ tx('screenplay.play.text') }}</span>
+        <textarea class="field-in" rows="12" :value="d.text || ''" :placeholder="tx('screenplay.play.textPh')" @input="set('text', ($event.target as HTMLTextAreaElement).value)" /></label>
+      <p v-if="d.text" class="muted small">{{ tx('screenplay.play.lines', { l: screenplayStats(d.text).lines, a: screenplayStats(d.text).actions, n: screenplayStats(d.text).shots }) }}</p>
+      <button type="button" class="primary" :disabled="busy || !inputsOf(id, 'idea').length" @click="runLlm([id])"><Icon name="spark" :size="18" />{{ d.text ? tx('screenplay.play.writeAgain') : tx('screenplay.play.write') }}</button>
+      <button type="button" class="btn" :disabled="!(d.text || '').trim()" @click="expand(id)"><Icon name="layers" />{{ tx('screenplay.play.expand') }}</button>
+      <button type="button" class="btn" :disabled="!(d.text || '').trim()" @click="downloadSrt"><Icon name="download" />{{ tx('screenplay.play.srt') }}</button>
+      <button type="button" class="btn" :disabled="busy || !(d.text || '').trim() || !inputsOf(id, 'series').length" @click="runLlm([id], 'recap')"><Icon name="plus" />{{ tx('screenplay.play.recap') }}</button>
+      <p class="muted small">{{ tx('screenplay.play.hintIntro') }}</p>
+      <ul class="muted small"><li>{{ tx('screenplay.play.hScene') }}</li><li>{{ tx('screenplay.play.hLine') }}</li><li>{{ tx('screenplay.play.hAction') }}</li><li>{{ tx('screenplay.play.hHow') }}</li></ul>
+      <p class="muted small">{{ tx('screenplay.play.expandHint') }}</p>
     </template>
 
     <!-- song: the song's piece, bars and words («Песня → клип» in parts) -->

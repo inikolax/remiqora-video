@@ -1,5 +1,5 @@
 // The texts' language (app/i18n.py): ideas and scene texts are in it, the translator goes from it to the English
-// prompt and back to it («Перевести на …»). Set on «Модели и настройки» → «Сценарист»; read once at start.
+// prompt and back to it («Перевести на …»). Set on «Настройки» → «Сценарист»; read once at start.
 import { reactive } from 'vue'
 import { api } from './api'
 import { currentLocale } from '../i18n'

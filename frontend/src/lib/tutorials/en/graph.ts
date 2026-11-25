@@ -25,6 +25,6 @@ export default scenario('graph', 'A graph from a template',
     step('Switch between the storyboard and the graph',
       '<p>In the storyboard, «Graph» in the «Cards / Graph» switch shows it on the canvas; «Copy as a graph project» in its panel makes a separate graph with the same keys — shot scenes come from the cache. To go back, «Build storyboard» in the graph panel: only from a straight graph (one output, one join, 5 s scenes).</p>'),
   ) +
-  tip('<b>Keys.</b> Select a node and click «Add» — the new one appears next to it and connects by itself if the ports match. <kbd>Ctrl</kbd> <kbd>C</kbd> / <kbd>Ctrl</kbd> <kbd>V</kbd> copy nodes with their links, <kbd>Ctrl</kbd> <kbd>Z</kbd> undoes any edit, <kbd>?</kbd> shows all keys.') +
+  tip('<b>Keys.</b> Select a node and click «Add» — the top shows what usually goes after it and before it; the new one appears next to it and connects by itself if the ports match. The list has a search. <kbd>Ctrl</kbd> <kbd>C</kbd> / <kbd>Ctrl</kbd> <kbd>V</kbd> copy nodes with their links, <kbd>Ctrl</kbd> <kbd>Z</kbd> undoes any edit, <kbd>?</kbd> shows all keys.') +
   tip('Until a scene copy is changed, its key is the same — it is shot once. Edit a scene and it is reshot along with everything that starts from its frame; neighboring branches are not.') +
   `<p class="note">Next: ${see('graph-nodes', 'Graph nodes')} · ${see('tut-remake', 'Reshoot a finished video')} · ${see('tut-edit', 'Montage and export to DaVinci Resolve')}</p>`, GROUP_EN)
